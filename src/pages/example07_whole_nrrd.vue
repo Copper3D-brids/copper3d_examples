@@ -8,9 +8,9 @@
 
 <script setup lang="ts">
 import { GUI } from "dat.gui";
-import * as Copper from "../ts/index";
-// import * as Copper from "copper3d_visualisation";
-// import "copper3d_visualisation/dist/css/style.css";
+// import * as Copper from "../ts/index";
+import * as Copper from "copper3d_visualisation";
+import "copper3d_visualisation/dist/css/style.css";
 import { getCurrentInstance, onMounted, ref } from "vue";
 
 let refs = null;

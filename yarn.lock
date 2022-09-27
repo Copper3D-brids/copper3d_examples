@@ -270,10 +270,10 @@ copper3d_plugin_heartjs_config@^1.0.7:
   resolved "https://registry.yarnpkg.com/copper3d_plugin_heartjs_config/-/copper3d_plugin_heartjs_config-1.0.7.tgz#42f72c631c27fe0396dd29bf83888cb996772f33"
   integrity sha512-rWhe19DQjC7Ap96uPKmQNy+IBihXTHelAowr5VdgHee+LDTLTLJ75IHsbBxi5ls1LHMxsXhGmWmT3Oy+pgva+Q==
 
-copper3d_visualisation@^1.11.10:
-  version "1.11.10"
-  resolved "https://registry.yarnpkg.com/copper3d_visualisation/-/copper3d_visualisation-1.11.10.tgz#a0c9c46e0d352750ee2523edf8ecb42f98d61811"
-  integrity sha512-b747v8iCdhgmDWRXfsa4UE48kS2TYYdAEij9oS8QniB2m1q5pSib7S7ipUP3DKot531hzHyQ6TSI1ybTwiqmlQ==
+copper3d_visualisation@^1.11.11:
+  version "1.11.11"
+  resolved "https://registry.yarnpkg.com/copper3d_visualisation/-/copper3d_visualisation-1.11.11.tgz#50c494522216626b35538862f7e4e346b20f431c"
+  integrity sha512-fnPHcohGEIOrY6YGlBGhskJ5YLs65tYnuqKMKRuM6BV6H/WIOoxd+3mfivDg4MxdVvu/2jE/M3xxBfvcfHnXPA==
   dependencies:
     "@types/dat.gui" "^0.7.7"
     "@types/three" "^0.140.0"
