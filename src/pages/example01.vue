@@ -61,10 +61,9 @@
 </template>
 
 <script setup lang="ts">
-import * as Copper from "copper3d_visualisation";
-// import { setHDRFilePath } from "gltfloader-plugin-test/dist/lib/environment/index";
+// import * as Copper from "copper3d_visualisation";
 import * as THREE from "three";
-// import * as Copper from "../ts/index";
+import * as Copper from "../ts/index";
 // import { setHDRFilePath } from "./ts/lib/environment/index";
 
 // import viewdata from "./assets/noInfarct_view.json";
