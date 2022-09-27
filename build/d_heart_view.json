@@ -1,0 +1,7 @@
+{
+  "farPlane": 10000000000,
+  "targetPosition": [0, 0, 0],
+  "nearPlane": 0.01,
+  "upVector": [-1, 1, 1],
+  "eyePosition": [0, 0, 40]
+}
