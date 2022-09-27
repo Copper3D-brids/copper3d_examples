@@ -6,8 +6,9 @@
 </template>
 
 <script setup lang="ts">
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "../ts/index";
+// import * as Copper from "copper3d_visualisation";
+// import "copper3d_visualisation/dist/css/style.css";
 // import Scene from "gltfloader-plugin-test/dist/Scene/index";
 // import { setHDRFilePath } from "gltfloader-plugin-test/dist/lib/environment/index";
 import * as THREE from "three";
