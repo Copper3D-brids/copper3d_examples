@@ -270,10 +270,10 @@ copper3d_plugin_heartjs_config@^1.0.7:
   resolved "https://registry.yarnpkg.com/copper3d_plugin_heartjs_config/-/copper3d_plugin_heartjs_config-1.0.7.tgz#42f72c631c27fe0396dd29bf83888cb996772f33"
   integrity sha512-rWhe19DQjC7Ap96uPKmQNy+IBihXTHelAowr5VdgHee+LDTLTLJ75IHsbBxi5ls1LHMxsXhGmWmT3Oy+pgva+Q==
 
-copper3d_visualisation@^1.11.11:
-  version "1.11.11"
-  resolved "https://registry.yarnpkg.com/copper3d_visualisation/-/copper3d_visualisation-1.11.11.tgz#50c494522216626b35538862f7e4e346b20f431c"
-  integrity sha512-fnPHcohGEIOrY6YGlBGhskJ5YLs65tYnuqKMKRuM6BV6H/WIOoxd+3mfivDg4MxdVvu/2jE/M3xxBfvcfHnXPA==
+copper3d_visualisation@^1.11.12:
+  version "1.11.12"
+  resolved "https://registry.yarnpkg.com/copper3d_visualisation/-/copper3d_visualisation-1.11.12.tgz#513c493a6b44343f2e1240dfe2e2a21bde311e09"
+  integrity sha512-/eNwCRdCus7udoRW3+WBuzn54yMWOB1sVyegCCCCyeR+0p6Q7STDkV9KEuEt3BKHvP4rCNt4E0jn2vjlFjwNbQ==
   dependencies:
     "@types/dat.gui" "^0.7.7"
     "@types/three" "^0.140.0"
@@ -283,7 +283,7 @@ copper3d_visualisation@^1.11.11:
     fflate "^0.7.3"
     glsl-blend-soft-light "^1.0.5"
     glsl-film-grain "^1.0.4"
-    three "^0.143.0"
+    three "^0.144.0"
 
 core-util-is@~1.0.0:
   version "1.0.3"
@@ -1019,10 +1019,10 @@ supports-preserve-symlinks-flag@^1.0.0:
   resolved "https://registry.yarnpkg.com/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz#6eda4bd344a3c94aea376d4cc31bc77311039e09"
   integrity sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==
 
-three@^0.143.0:
-  version "0.143.0"
-  resolved "https://registry.yarnpkg.com/three/-/three-0.143.0.tgz#1455bca132cc2b20beb7f41d313e10c29e5ed9df"
-  integrity sha512-oKcAGYHhJ46TGEuHjodo2n6TY2R6lbvrkp+feKZxqsUL/WkH7GKKaeu6RHeyb2Xjfk2dPLRKLsOP0KM2VgT8Zg==
+three@^0.144.0:
+  version "0.144.0"
+  resolved "https://registry.yarnpkg.com/three/-/three-0.144.0.tgz#2818517169f8ff94eea5f664f6ff1fcdcd436cc8"
+  integrity sha512-R8AXPuqfjfRJKkYoTQcTK7A6i3AdO9++2n8ubya/GTU+fEHhYKu1ZooRSCPkx69jbnzT7dD/xEo6eROQTt2lJw==
 
 through2@^0.6.3:
   version "0.6.5"

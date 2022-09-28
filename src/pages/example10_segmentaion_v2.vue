@@ -249,6 +249,9 @@ button {
   justify-content: center;
   align-items: center;
 }
+.copper3D_loading_progress {
+  color: crimson !important;
+}
 // .copper3D_scene_div {
 //   display: grid;
 //   grid-template-areas:
