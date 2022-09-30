@@ -14,9 +14,9 @@
 <script setup lang="ts">
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { GUI } from "dat.gui";
-// import * as Copper from "../ts/index";
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "../ts/index";
+// import * as Copper from "copper3d_visualisation";
+// import "copper3d_visualisation/dist/css/style.css";
 // import "../ts/css/style.css";
 import { getCurrentInstance, onMounted, ref } from "vue";
 
@@ -96,6 +96,7 @@ const getSliceChangedNum = (sliceNum: number) => {
   if (readyMain && readyC1 && readyC2 && readyC3 && readyC4) {
     // nrrdTools.setSyncsliceNum();
     // nrrdTools.updateIndex(sliceNum);
+
     nrrdTools.setSliceMoving(sliceNum);
   }
 };

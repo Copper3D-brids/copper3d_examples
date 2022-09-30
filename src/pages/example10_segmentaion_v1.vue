@@ -9,9 +9,9 @@
 <script setup lang="ts">
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { GUI } from "dat.gui";
-// import * as Copper from "../ts/index";
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "../ts/index";
+// import * as Copper from "copper3d_visualisation";
+// import "copper3d_visualisation/dist/css/style.css";
 // import "../ts/css/style.css";
 import { getCurrentInstance, onMounted, ref } from "vue";
 
@@ -107,7 +107,7 @@ function loadNrrd(
     // appRenderer.sceneInfos[0].scene.add(nrrdMesh.z);
 
     appRenderer.sceneInfos[0].subScene.add(nrrdMesh.z);
-    nrrdTools.setVolumeAndSlice(volume, nrrdSlices.z);
+    nrrdTools.setVolumeAndSlice(volume, nrrdSlices.z, true);
 
     nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
       mode: "mode1",
