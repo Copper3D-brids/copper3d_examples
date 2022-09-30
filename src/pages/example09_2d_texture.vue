@@ -6,9 +6,9 @@
 </template>
 
 <script setup lang="ts">
-// import * as Copper from "../ts/index";
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "../ts/index";
+// import * as Copper from "copper3d_visualisation";
+// import "copper3d_visualisation/dist/css/style.css";
 // import Scene from "gltfloader-plugin-test/dist/Scene/index";
 // import { setHDRFilePath } from "gltfloader-plugin-test/dist/lib/environment/index";
 import * as THREE from "three";
@@ -63,25 +63,31 @@ function loadModel(url: string, name: string) {
       // for (let i = 1; i <= 20; i++) {
       //   urls.push(`/copper3d_examples/brain/brain_0${i}.dcm`);
       // }
-      for (let i = 1; i <= 160; i++) {
-        if (i < 100) {
-          urls.push(`/copper3d_examples/breast-dicom/1-0${i}.dcm`);
-        } else {
-          urls.push(`/copper3d_examples/breast-dicom/1-${i}.dcm`);
-        }
-      }
-      // for (let i = 1; i <= 32; i++) {
-      //   urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
+      // for (let i = 1; i <= 160; i++) {
+      //   if (i < 100) {
+      //     urls.push(`/copper3d_examples/breast-dicom/1-0${i}.dcm`);
+      //   } else {
+      //     urls.push(`/copper3d_examples/breast-dicom/1-${i}.dcm`);
+      //   }
       // }
+      for (let i = 1; i <= 32; i++) {
+        urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
+      }
 
-      scene.setDicomFilesOrder("descending");
-      scene.loadDicom(
-        urls,
-        (mesh) => {
+      // scene.setDicomFilesOrder("descending");
+      scene.loadDicom(urls, {
+        gui,
+        getMesh(mesh) {
           console.log(mesh);
         },
-        gui
-      );
+        setAnimation(currentValue, depth, depthStep) {
+          currentValue += depthStep;
+          if (currentValue > depth) {
+            currentValue = 0;
+          }
+          return currentValue;
+        },
+      });
       // scene.loadDicom("/copper3d_examples/breast-dicom/1-049.dcm");
       // scene.loadDicom("/copper3d_examples/brain/brain_01.dcm");
       // scene.loadDicom("/copper3d_examples/mri_4ch/1.dcm");

@@ -6,9 +6,9 @@
 </template>
 
 <script setup lang="ts">
-// import * as Copper from "../ts/index";
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "../ts/index";
+// import * as Copper from "copper3d_visualisation";
+// import "copper3d_visualisation/dist/css/style.css";
 
 import { GUI } from "dat.gui";
 import { getCurrentInstance, onMounted, ref } from "vue";
@@ -59,14 +59,19 @@ function loadModel(urls: Array<string>, name: string) {
       scene.loadViewUrl("/copper3d_examples/texture2d_view_array.json");
       // scene.controls.rotateSpeed = 6;
 
-      scene.loadDicom(
-        urls,
-        (mesh) => {
-          scene?.setDepth(0.17);
-          mesh.position.set(0, 0, 0);
+      scene.loadDicom(urls, {
+        gui,
+        getMesh(mesh) {
+          console.log(mesh);
         },
-        gui
-      );
+        setAnimation(currentValue, depth, depthStep) {
+          currentValue += depthStep;
+          if (currentValue > depth) {
+            currentValue = 0;
+          }
+          return currentValue;
+        },
+      });
       scene.loadGltf("/copper3d_examples/heart1.gltf", (content) => {
         content.scale.set(5, 5, 5);
         content.rotation.set(2.1, 6.4, 6.7);
