@@ -107,7 +107,7 @@ function loadNrrd(
     // appRenderer.sceneInfos[0].scene.add(nrrdMesh.z);
 
     appRenderer.sceneInfos[0].subScene.add(nrrdMesh.z);
-    nrrdTools.setVolumeAndSlice(volume, nrrdSlices.z, true);
+    nrrdTools.setVolumeAndSlice(volume, nrrdSlices.z);
 
     nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
       mode: "mode1",
