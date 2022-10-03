@@ -36,7 +36,7 @@ onMounted(() => {
 
   c_gui.appendChild(gui.domElement);
   appRenderer = new Copper.copperRenderer(bg, {
-    guiOpen: false,
+    guiOpen: true,
     camera: true,
     performance: true,
     light: true,
@@ -74,7 +74,7 @@ function loadModel(url: string, name: string) {
         urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
       }
 
-      // scene.setDicomFilesOrder("descending");
+      scene.setDicomFilesOrder("descending");
       scene.loadDicom(urls, {
         gui,
         getMesh(mesh) {
