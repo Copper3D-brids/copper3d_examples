@@ -75,20 +75,20 @@ function loadModel(url: string, name: string) {
       }
 
       scene.setDicomFilesOrder("descending");
-      scene.loadDicom(urls, {
-        gui,
-        getMesh(mesh) {
-          console.log(mesh);
-        },
-        setAnimation(currentValue, depth, depthStep) {
-          currentValue += depthStep;
-          if (currentValue > depth) {
-            currentValue = 0;
-          }
-          return currentValue;
-        },
-      });
-      // scene.loadDicom("/copper3d_examples/breast-dicom/1-049.dcm");
+      // scene.loadDicom(urls, {
+      //   gui,
+      //   getMesh(mesh) {
+      //     console.log(mesh);
+      //   },
+      //   setAnimation(currentValue, depth, depthStep) {
+      //     currentValue += depthStep;
+      //     if (currentValue > depth) {
+      //       currentValue = 0;
+      //     }
+      //     return currentValue;
+      //   },
+      // });
+      scene.loadDicom("/copper3d_examples/breast-dicom/1-049.dcm");
       // scene.loadDicom("/copper3d_examples/brain/brain_01.dcm");
       // scene.loadDicom("/copper3d_examples/mri_4ch/1.dcm");
       // scene.texture2d(url);

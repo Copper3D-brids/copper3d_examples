@@ -72,7 +72,7 @@ function loadModel(urls: Array<string>, name: string) {
           return currentValue;
         },
       });
-      scene.loadGltf("/copper3d_examples/heart1.gltf", (content) => {
+      scene.loadGltf("/copper3d_examples/heart_2d.gltf", (content) => {
         content.scale.set(5, 5, 5);
         content.rotation.set(2.1, 6.4, 6.7);
         gui.add(content.rotation, "x").min(0.1).max(10).step(0.1);

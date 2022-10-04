@@ -4,7 +4,7 @@
     <div ref="c_gui" id="gui"></div>
     <div class="btn">
       <!-- <button @click="loadModel('/zincmmodel1.glb', 'health1')">Health</button> -->
-      <button @click="loadModel('/copper3d_examples/heart1.gltf', 'health')">
+      <button @click="loadModel('/copper3d_examples/heart_2d.gltf', 'health')">
         Health
       </button>
       <button @click="loadModel('/copper3d_examples/Minor.glb', 'minor')">
@@ -61,9 +61,9 @@
 </template>
 
 <script setup lang="ts">
-import * as Copper from "copper3d_visualisation";
+// import * as Copper from "copper3d_visualisation";
 import * as THREE from "three";
-// import * as Copper from "../ts/index";
+import * as Copper from "../ts/index";
 // import { setHDRFilePath } from "./ts/lib/environment/index";
 
 // import viewdata from "./assets/noInfarct_view.json";

@@ -156,12 +156,23 @@ export default class copperScene extends baseScene {
 
     models.forEach((model) => {
       const geometries: Array<THREE.BufferGeometry> = [];
-      model.urls.forEach((url) => {
+      model.urls.forEach((url, index) => {
         vtkLoader.load(url, (geometry) => {
           geometry.center();
           geometry.computeVertexNormals();
+          geometry.name = index.toString();
           geometries.push(geometry);
           if (geometries.length === model.urls.length) {
+            // sort the vtks by index order
+            geometries.sort(
+              (a: THREE.BufferGeometry, b: THREE.BufferGeometry) => {
+                if (this.sort) {
+                  return parseInt(a.name) - parseInt(b.name);
+                } else {
+                  return parseInt(b.name) - parseInt(a.name);
+                }
+              }
+            );
             finishLoad(geometries, model);
             count += 1;
           }
