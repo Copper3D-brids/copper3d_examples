@@ -24,6 +24,12 @@ body {
   border: 1px solid grey;
   position: relative;
 }
+.copper3d_sliceNumber {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
 
 .copper3D_sub_axes {
   width: 200px;
@@ -33,7 +39,7 @@ body {
   position: absolute;
   right: 0px;
   bottom: 0px;
-  z-index: 10;
+  z-index: 1000;
   pointer-events: none;
 }
 

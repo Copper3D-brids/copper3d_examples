@@ -12,6 +12,9 @@
     <button @click="goRouter(10)">example10_segmentation_v1</button>
     <button @click="goRouter(11)">example10_segmentation_v2</button>
     <button @click="goRouter(12)">example12_2d_texture_heart</button>
+    <button @click="goRouter(13)">
+      example13_Segmentation_Tool_Base_CopperScene
+    </button>
   </div>
 </template>
 

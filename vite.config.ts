@@ -5,7 +5,15 @@ import glslify from "rollup-plugin-glslify";
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    vue(),
+    vue({
+      template: {
+        compilerOptions: {
+          isCustomElement: (tag) => {
+            return tag === "ion-icon"; // (return true)
+          },
+        },
+      },
+    }),
     glslify({
       // Default
       include: ["**/*.vs", "**/*.fs", "**/*.vert", "**/*.frag", "**/*.glsl"],

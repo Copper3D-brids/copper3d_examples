@@ -69,6 +69,7 @@ import * as Copper from "../ts/index";
 // import viewdata from "./assets/noInfarct_view.json";
 
 import { getCurrentInstance, onMounted, ref } from "vue";
+import { PerspectiveCamera } from "three";
 let refs = null;
 let appRenderer: Copper.copperRenderer;
 let oldScene = null;
@@ -220,7 +221,7 @@ function sharePosition(scene: Copper.copperScene) {
   // ];
 
   const target = [-0.9551143646240234, 2.91867446899414, 2.7563438415527344];
-  viewpoint = scene.setViewPoint(scene.camera, target);
+  viewpoint = scene.setViewPoint(scene.camera as PerspectiveCamera, target);
   // const up = [scene.camera.up.x, scene.camera.up.y, scene.camera.up.z];
 
   // viewpoint = {

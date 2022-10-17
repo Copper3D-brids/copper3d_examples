@@ -30,7 +30,7 @@ onMounted(() => {
 
   c_gui.appendChild(gui.domElement);
   appRenderer = new Copper.copperRenderer(bg, {
-    guiOpen: false,
+    guiOpen: true,
     camera: true,
     performance: true,
     light: true,
@@ -73,11 +73,19 @@ function loadModel(urls: Array<string>, name: string) {
         },
       });
       scene.loadGltf("/copper3d_examples/heart_2d.gltf", (content) => {
-        content.scale.set(5, 5, 5);
-        content.rotation.set(2.1, 6.4, 6.7);
+        content.scale.set(4, 4, 4);
+        content.rotation.set(2.8, 3.9, 4.2);
+        content.position.set(-7.6, 20.8, -1.7);
         gui.add(content.rotation, "x").min(0.1).max(10).step(0.1);
         gui.add(content.rotation, "y").min(0.1).max(10).step(0.1);
         gui.add(content.rotation, "z").min(0.1).max(10).step(0.1);
+        gui.add(content.scale, "x").min(0.1).max(10).step(0.1);
+        gui.add(content.scale, "y").min(0.1).max(10).step(0.1);
+        gui.add(content.scale, "z").min(0.1).max(10).step(0.1);
+        gui.add(content.position, "x").min(-100).max(100).step(0.1);
+        gui.add(content.position, "y").min(-100).max(100).step(0.1);
+        gui.add(content.position, "z").min(-100).max(100).step(0.1);
+        scene?.setPlayRate(3.5);
       });
       // scene.loadDicom("/copper3d_examples/mri_4ch/1.dcm");
       // scene.texture2d(url);
