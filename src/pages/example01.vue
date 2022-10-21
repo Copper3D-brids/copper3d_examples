@@ -4,7 +4,7 @@
     <div ref="c_gui" id="gui"></div>
     <div class="btn">
       <!-- <button @click="loadModel('/zincmmodel1.glb', 'health1')">Health</button> -->
-      <button @click="loadModel('/copper3d_examples/heart1.gltf', 'health')">
+      <button @click="loadModel('/copper3d_examples/heart_2d.gltf', 'health')">
         Health
       </button>
       <button @click="loadModel('/copper3d_examples/Minor.glb', 'minor')">
@@ -35,17 +35,12 @@
       <button @click="addPlayRate">addPlayRate</button>
       <button @click="minusPlayRate">minusPlayRate</button>
       <button
-        @click="
-          loadNrrd(
-            '/copper3d_examples/nrrd/for-linkun/nnrd/DZET01_17871377_005.nrrd',
-            'nrrd'
-          )
-        "
+        @click="loadNrrd('/copper3d_examples/nrrd/breast-224.nrrd', 'nrrd')"
       >
         LoadNrrd
       </button>
       <button
-        @click="loadNrrd('/copper3d_examples/nrrd/58.nrrd', 'nrrd-breast1')"
+        @click="loadNrrd('/copper3d_examples/nrrd/breast.nrrd', 'nrrd-breast1')"
       >
         LoadNrrd-breast1
       </button>
@@ -61,14 +56,15 @@
 </template>
 
 <script setup lang="ts">
-import * as Copper from "copper3d_visualisation";
+// import * as Copper from "copper3d_visualisation";
 import * as THREE from "three";
-// import * as Copper from "../ts/index";
+import * as Copper from "../ts/index";
 // import { setHDRFilePath } from "./ts/lib/environment/index";
 
 // import viewdata from "./assets/noInfarct_view.json";
 
 import { getCurrentInstance, onMounted, ref } from "vue";
+import { PerspectiveCamera } from "three";
 let refs = null;
 let appRenderer: Copper.copperRenderer;
 let oldScene = null;
@@ -220,7 +216,7 @@ function sharePosition(scene: Copper.copperScene) {
   // ];
 
   const target = [-0.9551143646240234, 2.91867446899414, 2.7563438415527344];
-  viewpoint = scene.setViewPoint(scene.camera, target);
+  viewpoint = scene.setViewPoint(scene.camera as PerspectiveCamera, target);
   // const up = [scene.camera.up.x, scene.camera.up.y, scene.camera.up.z];
 
   // viewpoint = {
@@ -271,16 +267,24 @@ function getPosition(event: MouseEvent) {
 }
 
 function loadNrrd(url: string, name: string) {
+  // bg.appendChild(loadBar.loadingContainer);
   scene = appRenderer.getSceneByName(name) as Copper.copperScene;
   if (scene == undefined) {
     scene = appRenderer.createScene(name);
-
+    scene?.container.appendChild(loadBar.loadingContainer);
     const opts: Copper.optsType = {
       openGui: true,
       container: c_gui,
     };
-    const a = (volume: any) => {
+    const a = (
+      volume: any,
+      nrrdMesh: Copper.nrrdMeshesType,
+      nrrdSlices: Copper.nrrdSliceType
+    ) => {
       // Copper.addBoxHelper(scene as Copper.copperScene, volume);
+      scene?.addObject(nrrdMesh.x);
+      scene?.addObject(nrrdMesh.y);
+      scene?.addObject(nrrdMesh.z);
     };
     if (scene) {
       appRenderer.setCurrentScene(scene);

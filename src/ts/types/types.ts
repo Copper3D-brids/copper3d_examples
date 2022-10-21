@@ -66,11 +66,11 @@ interface loadingBarType {
   progress: HTMLDivElement;
 }
 
-type nrrdModeType = "mode0" | "mode1";
+// type nrrdModeType = "mode0" | "mode1";
 
 interface nrrdDragImageOptType {
-  mode?: nrrdModeType;
   showNumber?: boolean;
+  getSliceNum?: (index: number, contrastNum: number) => void;
 }
 
 // kiwrious
@@ -142,7 +142,6 @@ interface paintImagesType {
 
 interface paintImageType {
   index: number;
-  contrastNum: number;
   image: HTMLImageElement;
 }
 
@@ -162,7 +161,6 @@ interface vtkModels {
 
 interface undoType {
   sliceIndex: number;
-  contrastNum: number;
   undos: Array<HTMLImageElement>;
 }
 
@@ -197,7 +195,6 @@ export type {
   baseStateType,
   nrrdMeshesType,
   nrrdSliceType,
-  nrrdModeType,
   nrrdDragImageOptType,
   loadingBarType,
   SensorDecodedValue_kiwrious,

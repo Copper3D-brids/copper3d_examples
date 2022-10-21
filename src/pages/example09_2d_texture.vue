@@ -63,16 +63,16 @@ function loadModel(url: string, name: string) {
       // for (let i = 1; i <= 20; i++) {
       //   urls.push(`/copper3d_examples/brain/brain_0${i}.dcm`);
       // }
-      // for (let i = 1; i <= 160; i++) {
-      //   if (i < 100) {
-      //     urls.push(`/copper3d_examples/breast-dicom/1-0${i}.dcm`);
-      //   } else {
-      //     urls.push(`/copper3d_examples/breast-dicom/1-${i}.dcm`);
-      //   }
-      // }
-      for (let i = 1; i <= 32; i++) {
-        urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
+      for (let i = 1; i <= 160; i++) {
+        if (i < 100) {
+          urls.push(`/copper3d_examples/breast-dicom/1-0${i}.dcm`);
+        } else {
+          urls.push(`/copper3d_examples/breast-dicom/1-${i}.dcm`);
+        }
       }
+      // for (let i = 1; i <= 32; i++) {
+      //   urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
+      // }
 
       scene.setDicomFilesOrder("descending");
       scene.loadDicom(urls, {
