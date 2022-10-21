@@ -23,6 +23,9 @@
         <span @click="onSwitchSliceOrientation('y')"
           ><ion-icon name="chevron-forward-circle-outline"></ion-icon
         ></span>
+        <span @click="openDialog">
+          <ion-icon name="cloud-upload-outline"></ion-icon>
+        </span>
       </div>
     </div>
   </div>
@@ -36,15 +39,17 @@ type Props = {
   max?: number;
   immediateSliceNum?: number;
   contrastIndex?: number;
+  isAxisClicked?: boolean;
 };
 let p = withDefaults(defineProps<Props>(), {
   min: 0,
   max: 160,
   immediateSliceNum: 0,
   contrastIndex: 0,
+  isAxisClicked: false,
 });
 const state = reactive(p);
-const { max, immediateSliceNum, contrastIndex } = toRefs(state);
+const { max, immediateSliceNum, contrastIndex, isAxisClicked } = toRefs(state);
 const sliceNum = ref(0);
 let preViousSliceNum = p.min;
 let previousMax = 0;
@@ -54,10 +59,14 @@ let magnification = 1;
 
 const emit = defineEmits([
   "onSliceChange",
-  "redrawPre",
   "resetMainAreaSize",
   "onChangeOrientation",
+  "onOpenDialog",
 ]);
+
+const openDialog = () => {
+  emit("onOpenDialog", true);
+};
 
 const onSwitchSliceOrientation = (axis: string) => {
   emit("onChangeOrientation", axis);
@@ -75,14 +84,17 @@ const onMagnificationClick = (factor: number) => {
 };
 
 const onChangeSlider = () => {
+  preViousSliceNum > max.value
+    ? (preViousSliceNum = max.value)
+    : preViousSliceNum;
   const step = sliceNum.value - preViousSliceNum;
   emit("onSliceChange", step);
   preViousSliceNum += step;
 };
 
-const needToUpdatePre = () => {
-  emit("redrawPre");
-};
+// const needToUpdatePre = () => {
+//   emit("redrawPre");
+// };
 
 watchEffect(() => {
   if (isShowContrast) {
@@ -93,39 +105,26 @@ watchEffect(() => {
 });
 
 watchEffect(() => {
-  if (max.value > previousMax) {
-    sliceNum.value = sliceNum.value * p.fileNum;
-    if (count !== 0) isShowContrast = true;
-    count++;
+  if (!isAxisClicked.value) {
+    if (max.value > previousMax) {
+      sliceNum.value = sliceNum.value * p.fileNum;
+      if (count !== 0) isShowContrast = true;
+      count++;
+    }
+    if (max.value < previousMax) {
+      sliceNum.value = Math.floor(sliceNum.value / p.fileNum);
+      isShowContrast = false;
+    }
+    preViousSliceNum = sliceNum.value;
+    previousMax = max.value;
   }
-  if (max.value < previousMax) {
-    sliceNum.value = Math.floor(sliceNum.value / p.fileNum);
-    isShowContrast = false;
-    needToUpdatePre();
-  }
-  preViousSliceNum = sliceNum.value;
-  previousMax = max.value;
 });
-
-// let sliceNum = 0;
-
-// const onNextSlice = () => {
-//   if (p.max && p.max != 0) {
-//     if (sliceNum < p.max) sliceNum++;
-//     emit("onSliceChange", 1);
-//   }
-// };
-// const onPreviousSlice = () => {
-//   if (p.min >= 0) {
-//     if (sliceNum > p.min) sliceNum--;
-//     emit("onSliceChange", -1);
-//   }
-// };
 </script>
 
 <style lang="scss" scoped>
 .el-slider {
-  max-width: 30vw;
+  max-width: 35vw;
+  // width: 50vw;
   margin-right: 10px;
   --el-slider__bar-bg-color: red !important;
 }
@@ -153,6 +152,7 @@ watchEffect(() => {
   box-shadow: 0 30px 30px rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 .nav .content .arrows {
   display: flex;

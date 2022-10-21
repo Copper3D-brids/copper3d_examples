@@ -20,6 +20,7 @@ let appRenderer: Copper.copperMSceneRenderer;
 let c_gui: HTMLDivElement = ref<any>(null);
 let nrrdTools: Copper.nrrd_tools;
 let loadBar1: Copper.loadingBarType;
+let loadBar2: Copper.loadingBarType;
 
 onMounted(() => {
   let { $refs } = (getCurrentInstance() as any).proxy;
@@ -30,6 +31,9 @@ onMounted(() => {
   appRenderer = new Copper.copperMSceneRenderer(bg, 2);
   nrrdTools = new Copper.nrrd_tools(appRenderer.sceneInfos[0].container);
   loadBar1 = Copper.loading();
+  loadBar2 = Copper.loading();
+
+  appRenderer.sceneInfos[0].container.appendChild(loadBar1.loadingContainer);
 
   loadNrrd(
     "/copper3d_examples/nrrd/breast-224.nrrd",

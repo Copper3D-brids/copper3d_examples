@@ -72,14 +72,14 @@ const routes: Array<RouteRecordRaw> = [
         /* webpackChunkName: "example01" */ "../pages/example07_whole_nrrd.vue"
       ),
   },
-  {
-    path: "/example08",
-    name: "Example08",
-    component: () =>
-      import(
-        /* webpackChunkName: "example01" */ "../pages/example08_dragAnddraw_Nrrd.vue"
-      ),
-  },
+  // {
+  //   path: "/example08",
+  //   name: "Example08",
+  //   component: () =>
+  //     import(
+  //       /* webpackChunkName: "example01" */ "../pages/example08_dragAnddraw_Nrrd.vue"
+  //     ),
+  // },
   {
     path: "/example09",
     name: "Example09",
@@ -88,22 +88,22 @@ const routes: Array<RouteRecordRaw> = [
         /* webpackChunkName: "example01" */ "../pages/example09_2d_texture.vue"
       ),
   },
-  {
-    path: "/example10",
-    name: "Example10",
-    component: () =>
-      import(
-        /* webpackChunkName: "example01" */ "../pages/example10_segmentaion_v1.vue"
-      ),
-  },
-  {
-    path: "/example11",
-    name: "Example11",
-    component: () =>
-      import(
-        /* webpackChunkName: "example01" */ "../pages/example10_segmentaion_v2.vue"
-      ),
-  },
+  // {
+  //   path: "/example10",
+  //   name: "Example10",
+  //   component: () =>
+  //     import(
+  //       /* webpackChunkName: "example01" */ "../pages/example10_segmentaion_v1.vue"
+  //     ),
+  // },
+  // {
+  //   path: "/example11",
+  //   name: "Example11",
+  //   component: () =>
+  //     import(
+  //       /* webpackChunkName: "example01" */ "../pages/example10_segmentaion_v2.vue"
+  //     ),
+  // },
   {
     path: "/example12",
     name: "Example12",

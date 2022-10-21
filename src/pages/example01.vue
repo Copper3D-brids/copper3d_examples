@@ -35,17 +35,12 @@
       <button @click="addPlayRate">addPlayRate</button>
       <button @click="minusPlayRate">minusPlayRate</button>
       <button
-        @click="
-          loadNrrd(
-            '/copper3d_examples/nrrd/for-linkun/nnrd/DZET01_17871377_005.nrrd',
-            'nrrd'
-          )
-        "
+        @click="loadNrrd('/copper3d_examples/nrrd/breast-224.nrrd', 'nrrd')"
       >
         LoadNrrd
       </button>
       <button
-        @click="loadNrrd('/copper3d_examples/nrrd/58.nrrd', 'nrrd-breast1')"
+        @click="loadNrrd('/copper3d_examples/nrrd/breast.nrrd', 'nrrd-breast1')"
       >
         LoadNrrd-breast1
       </button>
@@ -272,16 +267,24 @@ function getPosition(event: MouseEvent) {
 }
 
 function loadNrrd(url: string, name: string) {
+  // bg.appendChild(loadBar.loadingContainer);
   scene = appRenderer.getSceneByName(name) as Copper.copperScene;
   if (scene == undefined) {
     scene = appRenderer.createScene(name);
-
+    scene?.container.appendChild(loadBar.loadingContainer);
     const opts: Copper.optsType = {
       openGui: true,
       container: c_gui,
     };
-    const a = (volume: any) => {
+    const a = (
+      volume: any,
+      nrrdMesh: Copper.nrrdMeshesType,
+      nrrdSlices: Copper.nrrdSliceType
+    ) => {
       // Copper.addBoxHelper(scene as Copper.copperScene, volume);
+      scene?.addObject(nrrdMesh.x);
+      scene?.addObject(nrrdMesh.y);
+      scene?.addObject(nrrdMesh.z);
     };
     if (scene) {
       appRenderer.setCurrentScene(scene);

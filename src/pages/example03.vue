@@ -38,7 +38,7 @@ onMounted(() => {
 
   // loadModel("/test.glb", "test", appRenderer.sceneInfos[0]);
   loadNrrd(
-    "/copper3d_examples/nrrd/heart_k.nrrd",
+    "/copper3d_examples/nrrd/breast-224.nrrd",
     "nrrd0",
     appRenderer.sceneInfos[0],
     c_gui

@@ -8,11 +8,13 @@
       :max="max"
       :immediate-slice-num="immediateSliceNum"
       :contrast-index="contrastNum"
+      :is-axis-clicked="isAxisClicked"
       @on-slice-change="getSliceChangedNum"
-      @redraw-pre="redraw"
       @reset-main-area-size="resetMainAreaSize"
       @on-change-orientation="resetSlicesOrientation"
+      @on-open-dialog="onOpenDialog"
     ></NavBar>
+    <Upload :dialog="dialog" @on-close-dialog="onCloseDialog"></Upload>
   </div>
 </template>
 
@@ -23,13 +25,16 @@ import * as Copper from "../ts/index";
 
 import { GUI } from "dat.gui";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
-import { getCurrentInstance, onMounted, ref, watchEffect } from "vue";
+import { getCurrentInstance, onMounted, ref, watchEffect, reactive } from "vue";
 import NavBar from "../components/NavBar.vue";
+import Upload from "../components/Upload.vue";
 let refs = null;
 let appRenderer: Copper.copperRenderer;
 let max = ref(0);
 let immediateSliceNum = ref(0);
 let contrastNum = ref(0);
+let isAxisClicked = ref(false);
+let dialog = ref(false);
 
 let viewpoint: Copper.CameraViewPoint | undefined;
 let scene: Copper.copperScene | undefined;
@@ -88,6 +93,7 @@ onMounted(() => {
 
   gui.add(state, "showContrast").onChange((flag) => {
     nrrdTools.setShowInMainArea(flag);
+    isAxisClicked.value = false;
     if (flag) {
       max.value = nrrdTools.getMaxSliceNum()[1];
     } else {
@@ -99,24 +105,22 @@ onMounted(() => {
   appRenderer.animate();
 });
 
-const redraw = () => {
-  console.log("redraw");
-
-  nrrdTools.redrawMianPreOnDisplayCanvas();
+const onOpenDialog = (flag: boolean) => {
+  dialog.value = flag;
+};
+const onCloseDialog = (flag: boolean) => {
+  dialog.value = flag;
 };
 
-const resetSlicesOrientation = (axis: string) => {
+const resetSlicesOrientation = (axis: "x" | "y" | "z") => {
   console.log(pre_slices.value);
-
-  console.log(axis);
-  switch (axis) {
-    case "x":
-      // nrrdTools.setSliceOritention([pre_slices.value.x]);
-      break;
-    case "y":
-      break;
-    case "z":
-      break;
+  nrrdTools.setSliceOrientation(axis);
+  const status = nrrdTools.getIsShowContrastState();
+  isAxisClicked.value = true;
+  if (status) {
+    max.value = nrrdTools.getMaxSliceNum()[1];
+  } else {
+    max.value = nrrdTools.getMaxSliceNum()[0];
   }
 };
 const getSliceChangedNum = (sliceNum: number) => {
@@ -127,9 +131,6 @@ const getSliceChangedNum = (sliceNum: number) => {
     readyC3.value &&
     readyC4.value
   ) {
-    // nrrdTools.setSyncsliceNum();
-    // nrrdTools.updateIndex(sliceNum);
-    // console.log(sliceNum);
     nrrdTools.setSliceMoving(sliceNum);
   }
 };

@@ -167,7 +167,10 @@ function loadModel(url: string, name: string) {
 
 function sharePosition(scene: Copper.copperScene) {
   const target = [-0.9551143646240234, 2.91867446899414, 2.7563438415527344];
-  viewpoint = scene.setViewPoint(scene.camera, target);
+  viewpoint = scene.setViewPoint(
+    scene.camera as THREE.PerspectiveCamera,
+    target
+  );
 }
 
 function reset() {
