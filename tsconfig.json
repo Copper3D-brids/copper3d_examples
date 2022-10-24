@@ -15,12 +15,12 @@
     "types": ["element-plus/global"]
   },
   "include": [
-    "backup_code/nrrd_tool copy.ts",
+    "dist/backup_code/nrrd_tool copy.ts",
     "src/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "backup_code/nrrd_tool copy.ts"
+    "dist/backup_code/nrrd_tool copy.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
