@@ -21,6 +21,9 @@ export class nrrd_tools {
   // store all contrast slices, include x, y, z orientation
   private allSlicesArray: Array<nrrdSliceType> = [];
   private displaySlices: Array<any> = [];
+  // Designed for reload displaySlices Array
+  private backUpDisplaySlices: Array<any> = [];
+  private skipSliceArray: Array<number> = [];
   // The default axis for all contrast slice is set to "z" orientation.
   // If we want to switch different orientation, we can set the axis outside.
   private axis: "x" | "y" | "z" = "z";
@@ -50,6 +53,7 @@ export class nrrd_tools {
   private paintedImage: paintImageType | undefined;
   private previousDrawingImage: HTMLImageElement = new Image();
   private undoArray: Array<undoType> = [];
+  private initState: boolean = true;
 
   private nrrd_states = {
     originWidth: 0,
@@ -67,17 +71,18 @@ export class nrrd_tools {
     Mouse_Over_y: 0,
     Mouse_Over: false,
     stepClear: 1,
+    sizeFoctor: 1,
     drawStartPos: new THREE.Vector2(1, 1),
   };
 
   private gui_states = {
     mainAreaSize: 1,
-    dragSensitivity: 50,
+    dragSensitivity: 75,
     Eraser: false,
     globalAlpha: 0.3,
     lineWidth: 2,
     color: "#f50a33",
-    segmentation: false,
+    segmentation: true,
     fillColor: "#3fac58",
     brushColor: "#3fac58",
     brushAndEraserSize: 15,
@@ -161,13 +166,46 @@ export class nrrd_tools {
    *  */
   setSliceOrientation(axis: "x" | "y" | "z") {
     this.axis = axis;
-    this.setDisplaySlicesBaseOnAxis();
-    this.updateMaxIndex();
-    this.setOriginCanvasAndPre();
-    this.updateShowNumDiv(this.nrrd_states.contrastNum);
-    this.repraintCurrentContrastSlice();
-    this.resizePaintArea(this.gui_states.mainAreaSize);
-    this.resetPaintArea();
+    this.resetDisplaySlicesStatus();
+  }
+
+  addSkip(index: number) {
+    const result = this.skipSliceArray.includes(index);
+    if (!result) {
+      this.skipSliceArray.push(index);
+    }
+    this.resetDisplaySlicesStatus();
+  }
+
+  removeSkip(index: number) {
+    const result = this.skipSliceArray.includes(index);
+    if (result) {
+      const idx = this.skipSliceArray.indexOf(index);
+      this.skipSliceArray.splice(idx, 1);
+    }
+    this.resetDisplaySlicesStatus();
+  }
+
+  clear() {
+    // To effectively reduce the js memory garbage
+    this.allSlicesArray.length = 0;
+    this.displaySlices.length = 0;
+    this.undoArray.length = 0;
+    this.paintImages.x.length = 0;
+    this.paintImages.y.length = 0;
+    this.paintImages.z.length = 0;
+    this.skipSliceArray.length = 0;
+    this.backUpDisplaySlices.length = 0;
+
+    this.mainPreSlice = undefined;
+    this.currentShowingSlice = undefined;
+    this.previousDrawingImage.src = "";
+    this.initState = true;
+    this.axis = "z";
+    this.nrrd_states.sizeFoctor = 1;
+    this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
+    this.drawingCanvas.width = this.drawingCanvas.width;
+    this.displayCanvas.width = this.displayCanvas.width;
   }
 
   setSliceMoving(step: number) {
@@ -189,6 +227,7 @@ export class nrrd_tools {
   }
 
   setMainAreaSize(factor: number) {
+    this.nrrd_states.sizeFoctor = factor;
     this.resizePaintArea(factor);
     this.resetPaintArea();
     this.setIsDrawFalse(1000);
@@ -205,6 +244,10 @@ export class nrrd_tools {
     }
   }
 
+  getCurrentSliceIndex() {
+    return this.mainPreSlice.index;
+  }
+
   getIsShowContrastState() {
     return this.nrrd_states.showContrast;
   }
@@ -216,24 +259,64 @@ export class nrrd_tools {
   }
 
   private setDisplaySlicesBaseOnAxis() {
-    this.displaySlices = [];
+    this.displaySlices.length = 0;
+    this.backUpDisplaySlices.length = 0;
+
     this.allSlicesArray.forEach((slices) => {
-      this.displaySlices.push(slices[this.axis]);
+      this.backUpDisplaySlices.push(slices[this.axis]);
     });
+
+    this.loadDisplaySlicesArray();
+  }
+
+  private loadDisplaySlicesArray() {
+    let len = this.skipSliceArray.length;
+    if (len === 0) {
+      this.displaySlices = [...this.backUpDisplaySlices];
+    } else {
+      this.backUpDisplaySlices.forEach((slice, index) => {
+        const result = this.skipSliceArray.includes(index);
+        if (!result) {
+          this.displaySlices.push(slice);
+        }
+      });
+    }
+  }
+
+  private resetDisplaySlicesStatus() {
+    this.setDisplaySlicesBaseOnAxis();
+    this.setMainPreSlice();
+    this.updateMaxIndex();
+    this.setOriginCanvasAndPre();
+    this.updateShowNumDiv(this.nrrd_states.contrastNum);
+    this.repraintCurrentContrastSlice();
+    this.resizePaintArea(this.nrrd_states.sizeFoctor);
+    this.resetPaintArea();
+  }
+
+  private setMainPreSlice() {
+    this.mainPreSlice = this.displaySlices[0];
   }
 
   private setOriginCanvasAndPre() {
-    this.mainPreSlice = this.displaySlices[0];
-    if (this.nrrd_states.oldIndex > this.nrrd_states.maxIndex)
-      this.nrrd_states.oldIndex = this.nrrd_states.maxIndex;
-    this.mainPreSlice.index = this.nrrd_states.oldIndex;
-    this.originCanvas = this.mainPreSlice.canvas;
-    this.updateOriginAndChangedWH();
+    if (this.mainPreSlice) {
+      if (this.nrrd_states.oldIndex > this.nrrd_states.maxIndex)
+        this.nrrd_states.oldIndex = this.nrrd_states.maxIndex;
+
+      if (this.initState) {
+        this.nrrd_states.oldIndex = this.mainPreSlice.index;
+      } else {
+        this.mainPreSlice.index = this.nrrd_states.oldIndex;
+      }
+
+      this.originCanvas = this.mainPreSlice.canvas;
+      this.updateOriginAndChangedWH();
+    }
   }
 
   private afterLoadSlice() {
+    this.setMainPreSlice();
     this.setOriginCanvasAndPre();
-
     this.currentShowingSlice = this.mainPreSlice;
     this.undoArray = [
       {
@@ -245,20 +328,23 @@ export class nrrd_tools {
     // compute max index
     this.updateMaxIndex();
     this.updateShowNumDiv(this.nrrd_states.contrastNum);
+    this.initState = false;
   }
 
   private updateMaxIndex() {
-    switch (this.axis) {
-      case "x":
-        this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[0];
-        break;
-      case "y":
-        this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[1];
-        break;
-      case "z":
-        this.nrrd_states.maxIndex =
-          this.mainPreSlice.volume.RASDimensions[2] - 1;
-        break;
+    if (this.mainPreSlice) {
+      switch (this.axis) {
+        case "x":
+          this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[0];
+          break;
+        case "y":
+          this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[1];
+          break;
+        case "z":
+          this.nrrd_states.maxIndex =
+            this.mainPreSlice.volume.RASDimensions[2] - 1;
+          break;
+      }
     }
   }
 
@@ -356,12 +442,14 @@ export class nrrd_tools {
   }
 
   private updateShowNumDiv(contrastNum: number) {
-    if (this.nrrd_states.showContrast) {
-      this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
-        this.displaySlices.length - 1
-      } SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
-    } else {
-      this.showDragNumberDiv.innerHTML = `SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
+    if (this.mainPreSlice) {
+      if (this.nrrd_states.showContrast) {
+        this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
+          this.displaySlices.length - 1
+        } SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
+      } else {
+        this.showDragNumberDiv.innerHTML = `SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
+      }
     }
   }
 
@@ -704,6 +792,7 @@ export class nrrd_tools {
             handleOnPainterMove
           );
         } else if (e.button === 2) {
+          rightclicked = true;
           let offsetX = parseInt(this.drawingCanvas.style.left);
           let offsetY = parseInt(this.drawingCanvas.style.top);
           panelMoveInnerX = e.clientX - offsetX;
@@ -827,9 +916,27 @@ export class nrrd_tools {
       }
     };
 
-    this.drawingCanvas.addEventListener("pointerleave", () => {
+    this.drawingCanvas.addEventListener("pointerleave", (e: MouseEvent) => {
       Is_Painting = false;
       // (this.sceneIn as copperScene).controls.enabled = true;
+      if (leftclicked) {
+        leftclicked = false;
+        this.drawingLayerOneCtx.closePath();
+        this.drawingCanvas.removeEventListener(
+          "pointermove",
+          handleOnPainterMove
+        );
+      }
+      if (rightclicked) {
+        rightclicked = false;
+        this.drawingCanvas.style.cursor = "grab";
+        this.drawingCanvas.removeEventListener(
+          "pointermove",
+          handleDragPaintPanel
+        );
+      }
+
+      this.setIsDrawFalse(100);
       if (this.gui_states.segmentation) {
         this.setIsDrawFalse(1000);
       }
@@ -940,6 +1047,7 @@ export class nrrd_tools {
       } else if (moveDistance <= 1) {
         moveDistance = 1;
       }
+      this.nrrd_states.sizeFoctor = moveDistance;
       this.resizePaintArea(moveDistance);
       this.resetPaintArea();
       controls && (controls.enabled = false);
@@ -1029,7 +1137,8 @@ export class nrrd_tools {
   }
 
   private configGui(modeFolder: GUI) {
-    if (modeFolder.__controllers.length > 0) this.removeModeChilden(modeFolder);
+    if (modeFolder.__controllers.length > 0)
+      this.removeGuiFolderChilden(modeFolder);
     modeFolder
       .add(this.gui_states, "dragSensitivity")
       .min(1)
@@ -1041,9 +1150,22 @@ export class nrrd_tools {
       .max(8)
       .onFinishChange((factor) => {
         this.resetPaintArea();
+        this.nrrd_states.sizeFoctor = factor;
         this.resizePaintArea(factor);
       });
     modeFolder.add(this.gui_states, "globalAlpha").min(0.1).max(1).step(0.01);
+    const segmentationFolder = modeFolder.addFolder("segmentation");
+    segmentationFolder.add(this.gui_states, "segmentation");
+    segmentationFolder
+      .add(this.gui_states, "lineWidth")
+      .name("outerLineWidth")
+      .min(1.7)
+      .max(3)
+      .step(0.01);
+    segmentationFolder.addColor(this.gui_states, "color");
+    segmentationFolder.addColor(this.gui_states, "fillColor");
+
+    segmentationFolder.open();
 
     modeFolder
       .add(this.gui_states, "brushAndEraserSize")
@@ -1065,16 +1187,7 @@ export class nrrd_tools {
     modeFolder.add(this.gui_states, "clearAll");
     modeFolder.add(this.gui_states, "undo");
     modeFolder.add(this.gui_states, "downloadCurrentImage");
-    const segmentationFolder = modeFolder.addFolder("segmentation");
-    segmentationFolder.add(this.gui_states, "segmentation");
-    segmentationFolder
-      .add(this.gui_states, "lineWidth")
-      .name("outerLineWidth")
-      .min(1.7)
-      .max(3)
-      .step(0.01);
-    segmentationFolder.addColor(this.gui_states, "color");
-    segmentationFolder.addColor(this.gui_states, "fillColor");
+
     const contrastFolder = modeFolder.addFolder("contrast");
     contrastFolder.open();
     contrastFolder
@@ -1191,28 +1304,33 @@ export class nrrd_tools {
     this.displayCanvas.width = this.displayCanvas.width;
     this.displayCanvas.height = this.displayCanvas.height;
     this.originCanvas.width = this.originCanvas.width;
-    this.currentShowingSlice.repaint.call(this.currentShowingSlice);
-    this.displayCtx?.drawImage(
-      this.currentShowingSlice.canvas,
-      0,
-      0,
-      this.nrrd_states.changedWidth,
-      this.nrrd_states.changedHeight
-    );
+    if (this.currentShowingSlice) {
+      this.currentShowingSlice.repaint.call(this.currentShowingSlice);
+      this.displayCtx?.drawImage(
+        this.currentShowingSlice.canvas,
+        0,
+        0,
+        this.nrrd_states.changedWidth,
+        this.nrrd_states.changedHeight
+      );
+    }
   }
 
   redrawMianPreOnDisplayCanvas() {
     this.displayCanvas.width = this.displayCanvas.width;
     this.displayCanvas.height = this.displayCanvas.height;
     this.originCanvas.width = this.originCanvas.width;
-    this.mainPreSlice.repaint.call(this.mainPreSlice);
-    this.displayCtx?.drawImage(
-      this.originCanvas,
-      0,
-      0,
-      this.nrrd_states.changedWidth,
-      this.nrrd_states.changedHeight
-    );
+    if (this.mainPreSlice) {
+      this.mainPreSlice.repaint.call(this.mainPreSlice);
+      this.displayCtx?.drawImage(
+        this.originCanvas,
+        0,
+        0,
+        this.nrrd_states.changedWidth,
+        this.nrrd_states.changedHeight
+      );
+      this.resizePaintArea(this.nrrd_states.sizeFoctor);
+    }
   }
 
   private resizePaintArea(factor: number) {
@@ -1296,7 +1414,7 @@ export class nrrd_tools {
   }
 
   // remove all folders gui controllers
-  private removeModeChilden(modeFolder: GUI) {
+  removeGuiFolderChilden(modeFolder: GUI) {
     const subControllers = modeFolder.__controllers;
     if (subControllers.length > 0)
       subControllers.forEach((c) => {

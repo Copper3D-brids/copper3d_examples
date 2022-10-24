@@ -33,8 +33,10 @@ import {
 
 import "./css/style.css";
 
+export const REVISION = "v1.12.1";
+
 console.log(
-  "%cCopper3D Visualisation %cBeta:v1.11.31",
+  "%cCopper3D Visualisation %cBeta:v1.11.34",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );
