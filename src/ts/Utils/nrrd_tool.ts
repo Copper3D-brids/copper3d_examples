@@ -7,23 +7,30 @@ import {
   paintImageType,
   mouseMovePositionType,
   undoType,
+  skipSlicesDictType,
+  exportPaintImageType,
+  exportPaintImagesType,
 } from "../types/types";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import copperMScene from "../Scene/copperMScene";
 import copperScene from "../Scene/copperScene";
 import { throttle } from "../Utils/raycaster";
+import { saveFileAsJson } from "./download";
 
 export class nrrd_tools {
   container: HTMLDivElement;
 
+  // used to store all marks
   paintImages: paintImagesType = { x: [], y: [], z: [] };
+
   // store all contrast slices, include x, y, z orientation
   private allSlicesArray: Array<nrrdSliceType> = [];
+  // to store all display slices, only include one orientation (e.g, x,y,z) for all contrast slices.
   private displaySlices: Array<any> = [];
   // Designed for reload displaySlices Array
   private backUpDisplaySlices: Array<any> = [];
-  private skipSliceArray: Array<number> = [];
+  private skipSlicesDic: skipSlicesDictType = {};
   // The default axis for all contrast slice is set to "z" orientation.
   // If we want to switch different orientation, we can set the axis outside.
   private axis: "x" | "y" | "z" = "z";
@@ -34,12 +41,15 @@ export class nrrd_tools {
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
   private displayCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadCanvas: HTMLCanvasElement = document.createElement("canvas");
+  // use to convert the store image with original size in storeAllImages function!
+  private emptyCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadImage: HTMLAnchorElement = document.createElement("a");
   private drawingCanvasLayerOne: HTMLCanvasElement =
     document.createElement("canvas");
   private currentShowingSlice: any;
   private displayCtx: CanvasRenderingContext2D;
   private drawingCtx: CanvasRenderingContext2D;
+  private emptyCtx: CanvasRenderingContext2D;
   private drawingLayerOneCtx: CanvasRenderingContext2D;
   private originCanvas: HTMLCanvasElement | any;
   private mainPreSlice: any;
@@ -51,55 +61,116 @@ export class nrrd_tools {
   start: () => void = () => {};
 
   private paintedImage: paintImageType | undefined;
-  private previousDrawingImage: HTMLImageElement = new Image();
+  private previousDrawingImage: ImageData;
   private undoArray: Array<undoType> = [];
   private initState: boolean = true;
+  private preTimer: any;
 
   private nrrd_states = {
     originWidth: 0,
     originHeight: 0,
+    nrrd_x: 0,
+    nrrd_y: 0,
+    nrrd_z: 0,
     changedWidth: 0,
     changedHeight: 0,
     oldIndex: 0,
+    currentIndex: 0,
     maxIndex: 0,
     minIndex: 0,
+    RSARatio: 0,
+    RSARatioArray: [],
+    dimensions: [],
+    ratios: { x: 1, y: 1, z: 1 },
+    sharedPlace: { x: [-1], y: [-1], z: [-1] },
+    latestNotEmptyImg: new Image(),
     contrastNum: 0,
     Max_sensitive: 100,
     readyToUpdate: true,
     showContrast: false,
+    enableCursorChoose: false,
+    isCursorSelect: false,
+    cursorPageX: 0,
+    cursorPageY: 0,
     Mouse_Over_x: 0,
     Mouse_Over_y: 0,
     Mouse_Over: false,
     stepClear: 1,
     sizeFoctor: 1,
+    // defaultPaintCursor:
+    //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
+    defaultPaintCursor:
+      "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto",
     drawStartPos: new THREE.Vector2(1, 1),
+  };
+
+  private cursorPage = {
+    x: {
+      cursorPageX: 0,
+      cursorPageY: 0,
+      index: 0,
+      updated: false,
+    },
+    y: {
+      cursorPageX: 0,
+      cursorPageY: 0,
+      index: 0,
+      updated: false,
+    },
+    z: {
+      cursorPageX: 0,
+      cursorPageY: 0,
+      index: 0,
+      updated: false,
+    },
   };
 
   private gui_states = {
     mainAreaSize: 1,
     dragSensitivity: 75,
     Eraser: false,
-    globalAlpha: 0.3,
+    globalAlpha: 0.7,
     lineWidth: 2,
     color: "#f50a33",
     segmentation: true,
     fillColor: "#3fac58",
     brushColor: "#3fac58",
     brushAndEraserSize: 15,
+    cursor: "dot",
     // EraserSize: 25,
+    clear: () => {
+      // const text = "Are you sure remove annotations on Current slice?";
+      // if (confirm(text) === true) {
+      //   this.clearPaint();
+      // }
+      this.clearPaint();
+    },
     clearAll: () => {
-      this.clearAllPaint();
+      const text = "Are you sure remove annotations on All slice?";
+      if (confirm(text) === true) {
+        this.clearPaint();
+        this.clearStoreImages();
+      }
     },
     undo: () => {
       this.undoLastPainting();
     },
-    downloadCurrentImage: () => {
+    downloadCurrentMask: () => {
       this.enableDownload();
+    },
+    resetZoom: () => {
+      this.nrrd_states.sizeFoctor = 1;
+      this.resizePaintArea(1);
+      this.resetPaintArea();
     },
     subView: false,
     subViewScale: 1.0,
     resetView: () => {
       this.sceneIn?.resetView();
+    },
+    exportMarks: () => {
+      // const a = [1, 2, 3, 4];
+      this.exportData();
     },
   };
 
@@ -111,9 +182,13 @@ export class nrrd_tools {
     this.drawingCtx = this.drawingCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
+    this.emptyCtx = this.emptyCanvas.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
     this.drawingLayerOneCtx = this.drawingCanvasLayerOne.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
+    this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
     this.init();
   }
 
@@ -135,6 +210,12 @@ export class nrrd_tools {
     this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
       if (ev.key === "Shift") {
         this.Is_Shift_Pressed = true;
+        this.nrrd_states.enableCursorChoose = false;
+      }
+      if (ev.key === "s") {
+        this.Is_Draw = false;
+        this.nrrd_states.enableCursorChoose =
+          !this.nrrd_states.enableCursorChoose;
       }
     });
     this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
@@ -155,9 +236,103 @@ export class nrrd_tools {
    */
   setAllSlices(allSlices: Array<nrrdSliceType>) {
     this.allSlicesArray = [...allSlices];
+
+    this.nrrd_states.nrrd_x = this.allSlicesArray[0].z.canvas.width;
+    this.nrrd_states.nrrd_y = this.allSlicesArray[0].z.canvas.height;
+    this.nrrd_states.nrrd_z = this.allSlicesArray[0].x.canvas.width;
+    this.nrrd_states.dimensions = this.allSlicesArray[0].x.volume.dimensions;
+    this.nrrd_states.RSARatioArray = this.allSlicesArray[0].x.volume.spacing;
+
+    this.allSlicesArray.forEach((item, index) => {
+      item.x.contrastOrder = index;
+      item.y.contrastOrder = index;
+      item.z.contrastOrder = index;
+    });
+
+    this.nrrd_states.ratios.x =
+      this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
+    this.nrrd_states.ratios.y =
+      this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
+    this.nrrd_states.ratios.z =
+      this.nrrd_states.nrrd_z / this.nrrd_states.dimensions[2];
+
+    this.nrrd_states.sharedPlace.x = this.getSharedPlace(
+      this.nrrd_states.dimensions[0],
+      this.nrrd_states.ratios.x
+    );
+    this.nrrd_states.sharedPlace.y = this.getSharedPlace(
+      this.nrrd_states.dimensions[1],
+      this.nrrd_states.ratios.y
+    );
+    this.nrrd_states.sharedPlace.z = this.getSharedPlace(
+      this.nrrd_states.dimensions[2],
+      this.nrrd_states.ratios.z
+    );
+    // init paintImages array
+    this.initPaintImages(this.nrrd_states.dimensions);
+
     // init displayslices array, the axis default is "z"
     this.setDisplaySlicesBaseOnAxis();
     this.afterLoadSlice();
+  }
+
+  private getSharedPlace(len: number, ratio: number): number[] {
+    let old = -1;
+    let same: number[] = [];
+    let temp = new Set<number>();
+    for (let i = 0; i < len; i++) {
+      const index = Math.floor(i * ratio);
+      if (index === old) {
+        temp.add(i - 1);
+        temp.add(i);
+      } else {
+        old = index;
+      }
+    }
+
+    temp.forEach((value) => {
+      same.push(value);
+    });
+    return same;
+  }
+
+  private initPaintImages(dimensions: Array<number>) {
+    // for x slices' marks
+    for (let i = 0; i < dimensions[0]; i++) {
+      const markImage_x = this.emptyCtx.createImageData(
+        this.nrrd_states.nrrd_z,
+        this.nrrd_states.nrrd_y
+      );
+      const initMark_x: paintImageType = {
+        index: i,
+        image: markImage_x,
+      };
+      this.paintImages.x.push(initMark_x);
+    }
+    // for y slices' marks
+    for (let i = 0; i < dimensions[1]; i++) {
+      const markImage_y = this.emptyCtx.createImageData(
+        this.nrrd_states.nrrd_x,
+        this.nrrd_states.nrrd_z
+      );
+      const initMark_y: paintImageType = {
+        index: i,
+        image: markImage_y,
+      };
+      this.paintImages.y.push(initMark_y);
+    }
+    // for z slices' marks
+    for (let i = 0; i < dimensions[2]; i++) {
+      const markImage_z = this.emptyCtx.createImageData(
+        this.nrrd_states.nrrd_x,
+        this.nrrd_states.nrrd_y
+      );
+      const initMark_z: paintImageType = {
+        index: i,
+        image: markImage_z,
+      };
+      this.paintImages.z.push(initMark_z);
+    }
   }
 
   /**
@@ -165,24 +340,154 @@ export class nrrd_tools {
    * @param {string} aixs:"x" | "y" | "z"
    *  */
   setSliceOrientation(axis: "x" | "y" | "z") {
+    if (this.nrrd_states.enableCursorChoose) {
+      if (this.axis === "z") {
+        this.cursorPage.z.index = this.nrrd_states.currentIndex;
+        this.cursorPage.z.cursorPageX = this.nrrd_states.cursorPageX;
+        this.cursorPage.z.cursorPageY = this.nrrd_states.cursorPageY;
+      } else if (this.axis === "x") {
+        this.cursorPage.x.index = this.nrrd_states.currentIndex;
+        this.cursorPage.x.cursorPageX = this.nrrd_states.cursorPageX;
+        this.cursorPage.x.cursorPageY = this.nrrd_states.cursorPageY;
+      } else if (this.axis === "y") {
+        this.cursorPage.y.index = this.nrrd_states.currentIndex;
+        this.cursorPage.y.cursorPageX = this.nrrd_states.cursorPageX;
+        this.cursorPage.y.cursorPageY = this.nrrd_states.cursorPageY;
+      }
+      if (axis === "z") {
+        if (this.nrrd_states.isCursorSelect && !this.cursorPage.z.updated) {
+          if (this.axis === "x") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              Math.ceil(
+                (this.cursorPage.x.cursorPageX / this.nrrd_states.nrrd_z) *
+                  this.mainPreSlice.volume.dimensions[2]
+              );
+
+            this.nrrd_states.cursorPageX = Math.ceil(
+              (this.cursorPage.x.index /
+                this.mainPreSlice.volume.dimensions[0]) *
+                this.nrrd_states.nrrd_x
+            );
+          }
+          if (this.axis === "y") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              Math.ceil(
+                (this.cursorPage.y.cursorPageY / this.nrrd_states.nrrd_z) *
+                  this.mainPreSlice.volume.dimensions[2]
+              );
+
+            this.nrrd_states.cursorPageY = Math.ceil(
+              (this.cursorPage.y.index /
+                this.mainPreSlice.volume.dimensions[1]) *
+                this.nrrd_states.nrrd_y
+            );
+          }
+          this.cursorPage.z.updated = true;
+        } else {
+          this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.cursorPage.z.index;
+          this.nrrd_states.cursorPageX = this.cursorPage.z.cursorPageX;
+          this.nrrd_states.cursorPageY = this.cursorPage.z.cursorPageY;
+        }
+      } else if (axis === "x") {
+        if (this.nrrd_states.isCursorSelect && !this.cursorPage.x.updated) {
+          if (this.axis === "z") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              Math.ceil(
+                (this.cursorPage.z.cursorPageX / this.nrrd_states.nrrd_x) *
+                  this.mainPreSlice.volume.dimensions[0]
+              );
+            this.nrrd_states.cursorPageX = Math.floor(
+              (this.cursorPage.z.index /
+                this.mainPreSlice.volume.dimensions[2]) *
+                this.nrrd_states.nrrd_z
+            );
+          }
+          if (this.axis === "y") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              Math.ceil(
+                (this.cursorPage.y.cursorPageX / this.nrrd_states.nrrd_y) *
+                  this.mainPreSlice.volume.dimensions[1]
+              );
+
+            this.nrrd_states.cursorPageX = this.cursorPage.y.cursorPageY;
+            this.nrrd_states.cursorPageY = Math.ceil(
+              (this.cursorPage.y.index /
+                this.mainPreSlice.volume.dimensions[1]) *
+                this.nrrd_states.nrrd_y
+            );
+          }
+          this.cursorPage.x.updated = true;
+        } else {
+          this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.cursorPage.x.index;
+          this.nrrd_states.cursorPageX = this.cursorPage.x.cursorPageX;
+          this.nrrd_states.cursorPageY = this.cursorPage.x.cursorPageY;
+        }
+      } else if (axis === "y") {
+        if (this.nrrd_states.isCursorSelect && !this.cursorPage.y.updated) {
+          if (this.axis === "z") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              Math.ceil(
+                (this.cursorPage.z.cursorPageY / this.nrrd_states.nrrd_y) *
+                  this.mainPreSlice.volume.dimensions[1]
+              );
+            this.nrrd_states.cursorPageY = Math.ceil(
+              (this.cursorPage.z.index /
+                this.mainPreSlice.volume.dimensions[2]) *
+                this.nrrd_states.nrrd_z
+            );
+          }
+          if (this.axis === "x") {
+            this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+              Math.ceil(
+                (this.cursorPage.x.cursorPageY / this.nrrd_states.nrrd_x) *
+                  this.mainPreSlice.volume.dimensions[0]
+              );
+            this.nrrd_states.cursorPageX = Math.ceil(
+              (this.cursorPage.x.index /
+                this.mainPreSlice.volume.dimensions[0]) *
+                this.nrrd_states.nrrd_x
+            );
+            this.nrrd_states.cursorPageY = Math.ceil(
+              this.cursorPage.x.cursorPageX
+            );
+          }
+          this.cursorPage.y.updated = true;
+        } else {
+          this.nrrd_states.oldIndex = this.nrrd_states.currentIndex =
+            this.cursorPage.y.index;
+          this.nrrd_states.cursorPageX = this.cursorPage.y.cursorPageX;
+          this.nrrd_states.cursorPageY = this.cursorPage.y.cursorPageY;
+        }
+      }
+      if (
+        this.cursorPage.x.updated &&
+        this.cursorPage.y.updated &&
+        this.cursorPage.z.updated
+      ) {
+        this.nrrd_states.isCursorSelect = false;
+      }
+    }
+
     this.axis = axis;
     this.resetDisplaySlicesStatus();
   }
 
   addSkip(index: number) {
-    const result = this.skipSliceArray.includes(index);
-    if (!result) {
-      this.skipSliceArray.push(index);
+    this.skipSlicesDic[index] = this.backUpDisplaySlices[index];
+    if (index >= this.displaySlices.length) {
+      this.nrrd_states.contrastNum = this.displaySlices.length;
+    } else {
+      this.nrrd_states.contrastNum = index;
     }
+
     this.resetDisplaySlicesStatus();
   }
 
   removeSkip(index: number) {
-    const result = this.skipSliceArray.includes(index);
-    if (result) {
-      const idx = this.skipSliceArray.indexOf(index);
-      this.skipSliceArray.splice(idx, 1);
-    }
+    this.skipSlicesDic[index] = undefined;
+    this.nrrd_states.contrastNum = 0;
     this.resetDisplaySlicesStatus();
   }
 
@@ -194,12 +499,13 @@ export class nrrd_tools {
     this.paintImages.x.length = 0;
     this.paintImages.y.length = 0;
     this.paintImages.z.length = 0;
-    this.skipSliceArray.length = 0;
-    this.backUpDisplaySlices.length = 0;
 
+    this.clearDictionary(this.skipSlicesDic);
+
+    this.backUpDisplaySlices.length = 0;
     this.mainPreSlice = undefined;
     this.currentShowingSlice = undefined;
-    this.previousDrawingImage.src = "";
+    this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
     this.initState = true;
     this.axis = "z";
     this.nrrd_states.sizeFoctor = 1;
@@ -217,8 +523,8 @@ export class nrrd_tools {
     }
   }
 
-  setShowInMainArea(flag: boolean) {
-    this.nrrd_states.showContrast = flag;
+  setShowInMainArea(isShowContrast: boolean) {
+    this.nrrd_states.showContrast = isShowContrast;
     this.nrrd_states.contrastNum = 0;
     if (this.mainPreSlice) {
       this.redrawMianPreOnDisplayCanvas();
@@ -227,8 +533,14 @@ export class nrrd_tools {
   }
 
   setMainAreaSize(factor: number) {
-    this.nrrd_states.sizeFoctor = factor;
-    this.resizePaintArea(factor);
+    this.nrrd_states.sizeFoctor += factor;
+
+    if (this.nrrd_states.sizeFoctor >= 8) {
+      this.nrrd_states.sizeFoctor = 8;
+    } else if (this.nrrd_states.sizeFoctor <= 1) {
+      this.nrrd_states.sizeFoctor = 1;
+    }
+    this.resizePaintArea(this.nrrd_states.sizeFoctor);
     this.resetPaintArea();
     this.setIsDrawFalse(1000);
   }
@@ -243,9 +555,15 @@ export class nrrd_tools {
       return [this.nrrd_states.maxIndex];
     }
   }
+  getCurrentSlicesNumAndContrastNum() {
+    return {
+      currentIndex: this.nrrd_states.currentIndex,
+      contrastIndex: this.nrrd_states.contrastNum,
+    };
+  }
 
   getCurrentSliceIndex() {
-    return this.mainPreSlice.index;
+    return Math.ceil(this.mainPreSlice.index / this.nrrd_states.RSARatio);
   }
 
   getIsShowContrastState() {
@@ -253,8 +571,12 @@ export class nrrd_tools {
   }
 
   private setIsDrawFalse(target: number) {
-    setTimeout(() => {
+    this.preTimer = setTimeout(() => {
       this.Is_Draw = false;
+      if (this.preTimer) {
+        window.clearTimeout(this.preTimer);
+        this.preTimer = undefined;
+      }
     }, target);
   }
 
@@ -270,14 +592,18 @@ export class nrrd_tools {
   }
 
   private loadDisplaySlicesArray() {
-    let len = this.skipSliceArray.length;
-    if (len === 0) {
-      this.displaySlices = [...this.backUpDisplaySlices];
-    } else {
+    const remainSlices = Object.values(this.skipSlicesDic);
+    if (remainSlices.length === 0) {
+      // load all display slices
       this.backUpDisplaySlices.forEach((slice, index) => {
-        const result = this.skipSliceArray.includes(index);
-        if (!result) {
-          this.displaySlices.push(slice);
+        this.skipSlicesDic[index] = slice;
+        this.displaySlices.push(slice);
+      });
+    } else {
+      remainSlices.forEach((slice, index) => {
+        if (!!slice) {
+          this.displaySlices.push(this.backUpDisplaySlices[index]);
+          this.skipSlicesDic[index] = this.backUpDisplaySlices[index];
         }
       });
     }
@@ -285,6 +611,10 @@ export class nrrd_tools {
 
   private resetDisplaySlicesStatus() {
     this.setDisplaySlicesBaseOnAxis();
+    this.setupConfigs();
+  }
+
+  private setupConfigs() {
     this.setMainPreSlice();
     this.updateMaxIndex();
     this.setOriginCanvasAndPre();
@@ -296,6 +626,25 @@ export class nrrd_tools {
 
   private setMainPreSlice() {
     this.mainPreSlice = this.displaySlices[0];
+    if (this.mainPreSlice) {
+      this.nrrd_states.RSARatio = this.mainPreSlice.RSARatio;
+    }
+    console.log(this.mainPreSlice);
+  }
+
+  private findLastCanvas() {
+    for (let i = this.mainPreSlice.MaxIndex; i > 0; i--) {
+      this.mainPreSlice.index = i * this.nrrd_states.RSARatio;
+      this.mainPreSlice.repaint.call(this.mainPreSlice);
+      const verfiy = !this.verifyCanvasIsEmpty(this.mainPreSlice.canvas);
+      if (verfiy) {
+        this.mainPreSlice.index = (i - 1) * this.nrrd_states.RSARatio;
+        this.mainPreSlice.repaint.call(this.mainPreSlice);
+        this.nrrd_states.latestNotEmptyImg.src =
+          this.mainPreSlice.canvas.toDataURL();
+        break;
+      }
+    }
   }
 
   private setOriginCanvasAndPre() {
@@ -304,9 +653,19 @@ export class nrrd_tools {
         this.nrrd_states.oldIndex = this.nrrd_states.maxIndex;
 
       if (this.initState) {
-        this.nrrd_states.oldIndex = this.mainPreSlice.index;
+        this.nrrd_states.oldIndex = this.mainPreSlice.initIndex;
+        this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
       } else {
-        this.mainPreSlice.index = this.nrrd_states.oldIndex;
+        // !need to change
+
+        if (this.axis === "y" || this.axis === "x") {
+          this.mainPreSlice.index =
+            (this.nrrd_states.dimensions[1] - 1 - this.nrrd_states.oldIndex) *
+            this.nrrd_states.RSARatio;
+        } else {
+          this.mainPreSlice.index =
+            this.nrrd_states.oldIndex * this.nrrd_states.RSARatio;
+        }
       }
 
       this.originCanvas = this.mainPreSlice.canvas;
@@ -324,7 +683,8 @@ export class nrrd_tools {
         undos: [],
       },
     ];
-    this.nrrd_states.oldIndex = this.mainPreSlice.index;
+    this.nrrd_states.oldIndex = this.mainPreSlice.initIndex;
+    this.nrrd_states.currentIndex = this.mainPreSlice.initIndex;
     // compute max index
     this.updateMaxIndex();
     this.updateShowNumDiv(this.nrrd_states.contrastNum);
@@ -333,18 +693,7 @@ export class nrrd_tools {
 
   private updateMaxIndex() {
     if (this.mainPreSlice) {
-      switch (this.axis) {
-        case "x":
-          this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[0];
-          break;
-        case "y":
-          this.nrrd_states.maxIndex = this.mainPreSlice.volume.RASDimensions[1];
-          break;
-        case "z":
-          this.nrrd_states.maxIndex =
-            this.mainPreSlice.volume.RASDimensions[2] - 1;
-          break;
-      }
+      this.nrrd_states.maxIndex = this.mainPreSlice.MaxIndex;
     }
   }
 
@@ -367,10 +716,11 @@ export class nrrd_tools {
   private updateOriginAndChangedWH() {
     this.nrrd_states.originWidth = this.originCanvas.width;
     this.nrrd_states.originHeight = this.originCanvas.height;
+
     this.nrrd_states.changedWidth =
-      this.originCanvas.width * Number(this.gui_states.mainAreaSize);
+      this.nrrd_states.originWidth * Number(this.gui_states.mainAreaSize);
     this.nrrd_states.changedHeight =
-      this.originCanvas.height * Number(this.gui_states.mainAreaSize);
+      this.nrrd_states.originWidth * Number(this.gui_states.mainAreaSize);
   }
 
   private initAllCanvas() {
@@ -389,11 +739,11 @@ export class nrrd_tools {
     this.drawingCanvas.style.position = "absolute";
     this.drawingCanvas.width = this.nrrd_states.changedWidth;
     this.drawingCanvas.height = this.nrrd_states.changedHeight;
-    this.drawingCanvas.style.cursor = "crosshair";
+    this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
     this.drawingCanvas.oncontextmenu = () => false;
 
-    this.displayCanvas.style.left = this.drawingCanvas.style.left = "0px";
-    this.displayCanvas.style.top = this.drawingCanvas.style.top = "0px";
+    // this.displayCanvas.style.left = this.drawingCanvas.style.left = "0px";
+    // this.displayCanvas.style.top = this.drawingCanvas.style.top = "0px";
 
     /**
      * layer1
@@ -406,8 +756,12 @@ export class nrrd_tools {
     /**
      * display and drawing canvas container
      */
-    this.mainAreaContainer.style.width = this.nrrd_states.changedWidth + "px";
-    this.mainAreaContainer.style.height = this.nrrd_states.changedHeight + "px";
+    // this.mainAreaContainer.style.width = this.nrrd_states.changedWidth + "px";
+    // this.mainAreaContainer.style.height = this.nrrd_states.changedHeight + "px";
+    this.mainAreaContainer.style.width =
+      this.nrrd_states.originWidth * 8 + "px";
+    this.mainAreaContainer.style.height =
+      this.nrrd_states.originHeight * 8 + "px";
     this.mainAreaContainer.appendChild(this.displayCanvas);
     this.mainAreaContainer.appendChild(this.drawingCanvas);
   }
@@ -443,12 +797,17 @@ export class nrrd_tools {
 
   private updateShowNumDiv(contrastNum: number) {
     if (this.mainPreSlice) {
+      if (this.nrrd_states.currentIndex > this.nrrd_states.maxIndex) {
+        this.nrrd_states.currentIndex = this.nrrd_states.maxIndex;
+      }
       if (this.nrrd_states.showContrast) {
         this.showDragNumberDiv.innerHTML = `ContrastNum: ${contrastNum}/${
           this.displaySlices.length - 1
-        } SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
+        } SliceNum: ${this.nrrd_states.currentIndex}/${
+          this.nrrd_states.maxIndex
+        }`;
       } else {
-        this.showDragNumberDiv.innerHTML = `SliceNum: ${this.mainPreSlice.index}/${this.nrrd_states.maxIndex}`;
+        this.showDragNumberDiv.innerHTML = `SliceNum: ${this.nrrd_states.currentIndex}/${this.nrrd_states.maxIndex}`;
       }
     }
   }
@@ -483,12 +842,12 @@ export class nrrd_tools {
           handleOnMouseMove,
           false
         );
-        this.nrrd_states.oldIndex = this.mainPreSlice.index;
+        // this.nrrd_states.oldIndex = this.mainPreSlice.index;
         sensivity = this.sensitiveArray[this.gui_states.dragSensitivity - 1];
       }
     };
     handleOnMouseMove = throttle((ev: MouseEvent) => {
-      this.nrrd_states.oldIndex = this.mainPreSlice.index;
+      // this.nrrd_states.oldIndex = this.mainPreSlice.index;
       if (y - ev.offsetY / h >= 0) {
         move = -Math.ceil(((y - ev.offsetY / h) * 10) / sensivity);
       } else {
@@ -497,7 +856,10 @@ export class nrrd_tools {
 
       this.updateIndex(move);
       opts?.getSliceNum &&
-        opts.getSliceNum(this.mainPreSlice.index, this.nrrd_states.contrastNum);
+        opts.getSliceNum(
+          this.nrrd_states.currentIndex,
+          this.nrrd_states.contrastNum
+        );
       y = ev.offsetY / h;
     }, sensivity * 200);
     handleOnMouseUp = (ev: MouseEvent) => {
@@ -545,11 +907,18 @@ export class nrrd_tools {
       contrastModifyNum = move % this.displaySlices.length;
       this.nrrd_states.contrastNum += contrastModifyNum;
       if (move > 0) {
-        sliceModifyNum = Math.floor(move / this.displaySlices.length);
+        if (
+          this.mainPreSlice.index / this.nrrd_states.RSARatio <=
+          this.nrrd_states.maxIndex
+        ) {
+          sliceModifyNum = Math.floor(move / this.displaySlices.length);
 
-        if (this.nrrd_states.contrastNum > this.displaySlices.length - 1) {
-          sliceModifyNum += 1;
-          this.nrrd_states.contrastNum -= this.displaySlices.length;
+          if (this.nrrd_states.contrastNum > this.displaySlices.length - 1) {
+            sliceModifyNum += 1;
+            this.nrrd_states.contrastNum -= this.displaySlices.length;
+          }
+        } else {
+          sliceModifyNum = 0;
         }
       } else {
         sliceModifyNum = Math.ceil(move / this.displaySlices.length);
@@ -565,6 +934,7 @@ export class nrrd_tools {
     // this.updateShowNumDiv(this.contrastNum, this.oldIndex);
 
     let newIndex = this.nrrd_states.oldIndex + sliceModifyNum;
+
     if (
       newIndex != this.nrrd_states.oldIndex ||
       this.nrrd_states.showContrast
@@ -576,7 +946,15 @@ export class nrrd_tools {
         newIndex = this.nrrd_states.minIndex;
         this.nrrd_states.contrastNum = 0;
       } else {
-        this.mainPreSlice.index = newIndex;
+        if (this.axis === "y" || this.axis === "x") {
+          this.mainPreSlice.index =
+            (this.nrrd_states.maxIndex - newIndex) * this.nrrd_states.RSARatio;
+        } else {
+          this.mainPreSlice.index = newIndex * this.nrrd_states.RSARatio;
+        }
+
+        this.nrrd_states.currentIndex = newIndex;
+
         if (newIndex != this.nrrd_states.oldIndex)
           this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
         this.displayCanvas.width = this.displayCanvas.width;
@@ -586,52 +964,65 @@ export class nrrd_tools {
           this.nrrd_states.changedHeight = this.nrrd_states.originHeight;
         }
 
-        if (this.nrrd_states.showContrast) {
-          // repaint all contrast canvas
-          this.repraintCurrentContrastSlice();
-        } else {
-          /**
-           * clear and redraw canvas
-           */
-          this.mainPreSlice.repaint.call(this.mainPreSlice);
-        }
-
         // get the slice that need to be updated on displayCanvas
-        const needToUpdateSlice = this.updateCurrentContrastSlice();
+        let needToUpdateSlice = this.updateCurrentContrastSlice();
+        needToUpdateSlice.repaint.call(needToUpdateSlice);
 
-        this.displayCtx.drawImage(
-          needToUpdateSlice.canvas,
-          0,
-          0,
-          this.nrrd_states.changedWidth,
-          this.nrrd_states.changedHeight
+        // let verify = true;
+        // if (this.nrrd_states.maxIndex - this.nrrd_states.currentIndex <= 5) {
+        //   verify = !this.verifyCanvasIsEmpty(needToUpdateSlice.canvas);
+        // }
+
+        // if (verify) {
+        //   this.drawDragSlice(needToUpdateSlice.canvas, newIndex);
+        // } else {
+        //   this.drawDragSlice(this.nrrd_states.latestNotEmptyImg, newIndex);
+        // }
+        this.drawDragSlice(needToUpdateSlice.canvas, newIndex);
+      }
+      // this.nrrd_states.oldIndex = this.mainPreSlice.index;
+      this.nrrd_states.oldIndex = newIndex;
+      this.updateShowNumDiv(this.nrrd_states.contrastNum);
+    }
+  }
+
+  private drawDragSlice(canvas: any, newIndex: number) {
+    this.displayCtx.save();
+    //  flip images
+    this.flipDisplayImageByYAxis();
+    this.displayCtx.drawImage(
+      canvas,
+      0,
+      0,
+      this.nrrd_states.changedWidth,
+      this.nrrd_states.changedHeight
+    );
+
+    this.displayCtx.restore();
+    if (
+      this.paintImages.x.length > 0 ||
+      this.paintImages.y.length > 0 ||
+      this.paintImages.z.length > 0
+    ) {
+      if (newIndex != this.nrrd_states.oldIndex) {
+        this.paintedImage = this.filterDrawedImage(
+          this.axis,
+          this.nrrd_states.currentIndex
         );
 
-        if (
-          this.paintImages.x.length > 0 ||
-          this.paintImages.y.length > 0 ||
-          this.paintImages.z.length > 0
-        ) {
-          if (newIndex != this.nrrd_states.oldIndex) {
-            this.paintedImage = this.filterDrawedImage(
-              this.axis,
-              this.mainPreSlice.index
-            );
-
-            if (this.paintedImage?.image) {
-              this.drawingLayerOneCtx.drawImage(
-                this.paintedImage.image,
-                0,
-                0,
-                this.nrrd_states.changedWidth,
-                this.nrrd_states.changedHeight
-              );
-            }
-          }
+        if (this.paintedImage?.image) {
+          this.emptyCanvas.width = this.nrrd_states.originWidth;
+          this.emptyCanvas.height = this.nrrd_states.originHeight;
+          this.emptyCtx.putImageData(this.paintedImage.image, 0, 0);
+          this.drawingLayerOneCtx.drawImage(
+            this.emptyCanvas,
+            0,
+            0,
+            this.nrrd_states.changedWidth,
+            this.nrrd_states.changedHeight
+          );
         }
       }
-      this.nrrd_states.oldIndex = this.mainPreSlice.index;
-      this.updateShowNumDiv(this.nrrd_states.contrastNum);
     }
   }
 
@@ -697,6 +1088,8 @@ export class nrrd_tools {
     this.initAllCanvas();
     this.configGui(modeFolder);
 
+    this.displayCtx?.save();
+    this.flipDisplayImageByYAxis();
     this.displayCtx?.drawImage(
       this.originCanvas,
       0,
@@ -704,7 +1097,15 @@ export class nrrd_tools {
       this.nrrd_states.changedWidth,
       this.nrrd_states.changedHeight
     );
-    this.previousDrawingImage.src = this.drawingCanvas.toDataURL();
+
+    this.displayCtx?.restore();
+
+    this.previousDrawingImage = this.drawingCtx.getImageData(
+      0,
+      0,
+      this.drawingCanvas.width,
+      this.drawingCanvas.height
+    );
 
     // let a global variable to store the wheel move event
     this.handleWheelMove = this.configMouseWheel(this.sceneIn?.controls);
@@ -760,7 +1161,7 @@ export class nrrd_tools {
 
         // when switch slice, clear previousDrawingImage
         if (currentSliceIndex !== this.mainPreSlice.index) {
-          this.previousDrawingImage.src = "";
+          this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
           currentSliceIndex = this.mainPreSlice.index;
         }
 
@@ -768,29 +1169,51 @@ export class nrrd_tools {
         this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
 
         if (e.button === 0) {
-          if (!this.Is_Shift_Pressed) {
-            return;
+          if (this.Is_Shift_Pressed) {
+            leftclicked = true;
+            lines = [];
+            Is_Painting = true;
+            this.Is_Draw = true;
+
+            if (this.gui_states.Eraser) {
+              this.drawingCanvas.style.cursor =
+                "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/circular-cursor.png) 52 52, crosshair";
+            } else {
+              this.drawingCanvas.style.cursor =
+                this.nrrd_states.defaultPaintCursor;
+            }
+
+            this.nrrd_states.drawStartPos.set(e.offsetX, e.offsetY);
+            this.drawingLayerOneCtx.beginPath();
+            this.drawingCanvas.addEventListener("pointerup", handlePointerUp);
+            this.drawingCanvas.addEventListener(
+              "pointermove",
+              handleOnPainterMove
+            );
+          } else if (this.nrrd_states.enableCursorChoose) {
+            this.nrrd_states.cursorPageX =
+              e.offsetX / this.nrrd_states.sizeFoctor;
+            this.nrrd_states.cursorPageY =
+              e.offsetY / this.nrrd_states.sizeFoctor;
+            this.nrrd_states.isCursorSelect = true;
+            switch (this.axis) {
+              case "x":
+                this.cursorPage.x.updated = true;
+                this.cursorPage.y.updated = false;
+                this.cursorPage.z.updated = false;
+                break;
+              case "y":
+                this.cursorPage.x.updated = false;
+                this.cursorPage.y.updated = true;
+                this.cursorPage.z.updated = false;
+                break;
+              case "z":
+                this.cursorPage.x.updated = false;
+                this.cursorPage.y.updated = false;
+                this.cursorPage.z.updated = true;
+                break;
+            }
           }
-
-          leftclicked = true;
-          lines = [];
-          Is_Painting = true;
-          this.Is_Draw = true;
-
-          if (this.gui_states.Eraser) {
-            this.drawingCanvas.style.cursor =
-              "url(https://s3-us-west-2.amazonaws.com/s.cdpn.io/4273/circular-cursor.png) 52 52, crosshair";
-          } else {
-            this.drawingCanvas.style.cursor = "crosshair";
-          }
-
-          this.nrrd_states.drawStartPos.set(e.offsetX, e.offsetY);
-          this.drawingLayerOneCtx.beginPath();
-          this.drawingCanvas.addEventListener("pointerup", handlePointerUp);
-          this.drawingCanvas.addEventListener(
-            "pointermove",
-            handleOnPainterMove
-          );
         } else if (e.button === 2) {
           rightclicked = true;
           let offsetX = parseInt(this.drawingCanvas.style.left);
@@ -842,13 +1265,15 @@ export class nrrd_tools {
                 this.drawingCanvasLayerOne.width;
               const tempPreImg = this.filterDrawedImage(
                 this.axis,
-                this.mainPreSlice.index
+                this.nrrd_states.currentIndex
               )?.image;
               if (tempPreImg) {
                 this.previousDrawingImage = tempPreImg;
               }
+              this.emptyCanvas.width = this.emptyCanvas.width;
+              this.emptyCtx.putImageData(this.previousDrawingImage, 0, 0);
               this.drawingLayerOneCtx.drawImage(
-                this.previousDrawingImage,
+                this.emptyCanvas,
                 0,
                 0,
                 this.nrrd_states.changedWidth,
@@ -865,17 +1290,25 @@ export class nrrd_tools {
               this.drawingLayerOneCtx.fill();
             }
           }
-          this.previousDrawingImage.src =
-            this.drawingCanvasLayerOne.toDataURL();
-          this.storeAllImages();
-          console.log(
-            this.drawingCtx.getImageData(
-              0,
-              0,
-              this.drawingCanvas.width,
-              this.drawingCanvas.height
-            )
+
+          this.previousDrawingImage = this.drawingLayerOneCtx.getImageData(
+            0,
+            0,
+            this.drawingCanvasLayerOne.width,
+            this.drawingCanvasLayerOne.height
           );
+          this.storeAllImages();
+
+          // update 1.12.23
+
+          const imageData = this.drawingCtx.getImageData(
+            0,
+            0,
+            this.drawingCanvas.width,
+            this.drawingCanvas.height
+          );
+          console.log("Paint mark data -----> :", imageData);
+
           Is_Painting = false;
 
           /**
@@ -889,7 +1322,7 @@ export class nrrd_tools {
             currentUndoObj[0].undos.push(image);
           } else {
             const undoObj: undoType = {
-              sliceIndex: this.mainPreSlice.index,
+              sliceIndex: this.nrrd_states.currentIndex,
               undos: [],
             };
             undoObj.undos.push(image);
@@ -982,6 +1415,22 @@ export class nrrd_tools {
               this.drawingCtx.stroke();
             }
           }
+          if (this.nrrd_states.enableCursorChoose) {
+            this.drawingCtx.clearRect(
+              0,
+              0,
+              this.nrrd_states.changedWidth,
+              this.nrrd_states.changedHeight
+            );
+
+            const ex =
+              this.nrrd_states.cursorPageX * this.nrrd_states.sizeFoctor;
+            const ey =
+              this.nrrd_states.cursorPageY * this.nrrd_states.sizeFoctor;
+
+            this.drawLine(ex, 0, ex, this.drawingCanvas.height);
+            this.drawLine(0, ey, this.drawingCanvas.width, ey);
+          }
         }
         this.drawingCtx.drawImage(this.drawingCanvasLayerOne, 0, 0);
       } else {
@@ -995,6 +1444,14 @@ export class nrrd_tools {
       }
     });
   }
+
+  private drawLine = (x1: number, y1: number, x2: number, y2: number) => {
+    this.drawingCtx.beginPath();
+    this.drawingCtx.moveTo(x1, y1);
+    this.drawingCtx.lineTo(x2, y2);
+    this.drawingCtx.strokeStyle = this.gui_states.color;
+    this.drawingCtx.stroke();
+  };
 
   private undoLastPainting() {
     this.Is_Draw = true;
@@ -1017,7 +1474,12 @@ export class nrrd_tools {
           this.nrrd_states.changedHeight
         );
       }
-      this.previousDrawingImage.src = this.drawingCanvasLayerOne.toDataURL();
+      this.previousDrawingImage = this.drawingLayerOneCtx.getImageData(
+        0,
+        0,
+        this.drawingCanvasLayerOne.width,
+        this.drawingCanvasLayerOne.height
+      );
       this.storeAllImages();
       this.setIsDrawFalse(1000);
     }
@@ -1025,7 +1487,7 @@ export class nrrd_tools {
 
   private getCurrentUndo() {
     return this.undoArray.filter((item) => {
-      return item.sliceIndex === this.mainPreSlice.index;
+      return item.sliceIndex === this.nrrd_states.currentIndex;
     });
   }
 
@@ -1036,27 +1498,45 @@ export class nrrd_tools {
         return;
       }
       e.preventDefault();
+      // this.nrrd_states.originWidth;
+      const delta = e.detail ? e.detail > 0 : (e as any).wheelDelta < 0;
       this.Is_Draw = true;
-      if (e.deltaY < 0) {
-        moveDistance += 0.1;
-      } else if (e.deltaY > 0) {
-        moveDistance -= 0.1;
-      }
-      if (moveDistance >= 8) {
+
+      const ratioL =
+        (e.clientX -
+          this.mainAreaContainer.offsetLeft -
+          this.drawingCanvas.offsetLeft) /
+        this.drawingCanvas.offsetWidth;
+      const ratioT =
+        (e.clientY -
+          this.mainAreaContainer.offsetTop -
+          this.drawingCanvas.offsetTop) /
+        this.drawingCanvas.offsetHeight;
+      const ratioDelta = !delta ? 1 + 0.1 : 1 - 0.1;
+
+      const w = this.drawingCanvas.offsetWidth * ratioDelta;
+      const h = this.drawingCanvas.offsetHeight * ratioDelta;
+      const l = Math.round(
+        e.clientX - this.mainAreaContainer.offsetLeft - w * ratioL
+      );
+      const t = Math.round(
+        e.clientY - this.mainAreaContainer.offsetTop - h * ratioT
+      );
+
+      moveDistance = w / this.nrrd_states.originWidth;
+
+      if (moveDistance > 8) {
         moveDistance = 8;
-      } else if (moveDistance <= 1) {
+      } else if (moveDistance < 1) {
         moveDistance = 1;
+      } else {
+        this.resizePaintArea(moveDistance);
+        this.resetPaintArea(l, t);
+        controls && (controls.enabled = false);
+        this.setIsDrawFalse(1000);
       }
       this.nrrd_states.sizeFoctor = moveDistance;
-      this.resizePaintArea(moveDistance);
-      this.resetPaintArea();
-      controls && (controls.enabled = false);
-      this.setIsDrawFalse(1000);
     };
-
-    // this.drawingCanvas.addEventListener("wheel", handleWheelMove, {
-    //   passive: false,
-    // });
     return handleWheelMove;
   }
 
@@ -1076,17 +1556,25 @@ export class nrrd_tools {
     };
     return clearArc;
   }
-  private clearAllPaint() {
+  private clearPaint() {
     this.Is_Draw = true;
     this.drawingCanvasLayerOne.width = this.drawingCanvas.width;
     this.originCanvas.width = this.originCanvas.width;
     this.mainPreSlice.repaint.call(this.mainPreSlice);
-    this.previousDrawingImage.src = "";
+    this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
     this.storeAllImages();
     this.setIsDrawFalse(1000);
   }
+
+  private clearStoreImages() {
+    this.paintImages.x.length = 0;
+    this.paintImages.y.length = 0;
+    this.paintImages.z.length = 0;
+    this.initPaintImages(this.nrrd_states.dimensions);
+  }
+
   private enableDownload() {
-    this.downloadImage.download = `slice_${this.axis}_#${this.mainPreSlice.index}`;
+    this.downloadImage.download = `slice_${this.axis}_#${this.nrrd_states.currentIndex}`;
     const downloadCtx = this.downloadCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
@@ -1094,13 +1582,13 @@ export class nrrd_tools {
     this.downloadCanvas.height = this.nrrd_states.originHeight;
     // downloadCtx.globalAlpha = this.gui_states.globalAlpha;
 
-    downloadCtx.drawImage(
-      this.displayCanvas,
-      0,
-      0,
-      this.nrrd_states.originWidth,
-      this.nrrd_states.originHeight
-    );
+    // downloadCtx.drawImage(
+    //   this.displayCanvas,
+    //   0,
+    //   0,
+    //   this.nrrd_states.originWidth,
+    //   this.nrrd_states.originHeight
+    // );
     downloadCtx.drawImage(
       this.drawingCanvas,
       0,
@@ -1139,13 +1627,30 @@ export class nrrd_tools {
   private configGui(modeFolder: GUI) {
     if (modeFolder.__controllers.length > 0)
       this.removeGuiFolderChilden(modeFolder);
-    modeFolder
-      .add(this.gui_states, "dragSensitivity")
-      .min(1)
-      .max(this.nrrd_states.Max_sensitive)
-      .step(1);
-    modeFolder
+
+    modeFolder.open();
+    const actionsFolder = modeFolder.addFolder("Default Actions");
+
+    actionsFolder
+      .add(this.gui_states, "cursor", ["crosshair", "pencil", "dot"])
+      .name("cursor icons")
+      .onChange((value) => {
+        if (value === "crosshair") {
+          this.nrrd_states.defaultPaintCursor = "crosshair";
+        }
+        if (value === "pencil") {
+          this.nrrd_states.defaultPaintCursor =
+            "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto";
+        }
+        if (value === "dot") {
+          this.nrrd_states.defaultPaintCursor =
+            "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto";
+        }
+        this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
+      });
+    actionsFolder
       .add(this.gui_states, "mainAreaSize")
+      .name("zoom")
       .min(1)
       .max(8)
       .onFinishChange((factor) => {
@@ -1153,9 +1658,63 @@ export class nrrd_tools {
         this.nrrd_states.sizeFoctor = factor;
         this.resizePaintArea(factor);
       });
-    modeFolder.add(this.gui_states, "globalAlpha").min(0.1).max(1).step(0.01);
-    const segmentationFolder = modeFolder.addFolder("segmentation");
-    segmentationFolder.add(this.gui_states, "segmentation");
+    actionsFolder.add(this.gui_states, "resetZoom");
+    actionsFolder
+      .add(this.gui_states, "globalAlpha")
+      .name("opacity")
+      .min(0.1)
+      .max(1)
+      .step(0.01);
+    actionsFolder.add(this.gui_states, "segmentation").name("Pencil");
+    actionsFolder
+      .add(this.gui_states, "brushAndEraserSize")
+      .min(5)
+      .max(50)
+      .step(1);
+
+    actionsFolder.add(this.gui_states, "Eraser").onChange((value) => {
+      this.gui_states.Eraser = value;
+      if (this.gui_states.Eraser) {
+        this.drawingCanvas.style.cursor =
+          "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/circular-cursor.png) 52 52, crosshair";
+      } else {
+        this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
+      }
+    });
+    actionsFolder.add(this.gui_states, "clear");
+    actionsFolder.add(this.gui_states, "clearAll");
+    actionsFolder.add(this.gui_states, "undo");
+
+    actionsFolder
+      .add(
+        this.mainPreSlice.volume,
+        "windowHigh",
+        this.mainPreSlice.volume.min,
+        this.mainPreSlice.volume.max,
+        1
+      )
+      .name("Image contrast")
+      .onChange((value) => {
+        this.nrrd_states.readyToUpdate = false;
+        this.updateSlicesContrast(value, "windowHigh");
+      })
+      .onFinishChange(() => {
+        this.repraintAllContrastSlices();
+        this.nrrd_states.readyToUpdate = true;
+      });
+
+    actionsFolder.add(this.gui_states, "exportMarks");
+
+    const advanceFolder = modeFolder.addFolder("Advance settings");
+
+    advanceFolder
+      .add(this.gui_states, "dragSensitivity")
+      .min(1)
+      .max(this.nrrd_states.Max_sensitive)
+      .step(1);
+
+    const segmentationFolder = advanceFolder.addFolder("Pencil settings");
+
     segmentationFolder
       .add(this.gui_states, "lineWidth")
       .name("outerLineWidth")
@@ -1164,32 +1723,13 @@ export class nrrd_tools {
       .step(0.01);
     segmentationFolder.addColor(this.gui_states, "color");
     segmentationFolder.addColor(this.gui_states, "fillColor");
-
-    segmentationFolder.open();
-
-    modeFolder
-      .add(this.gui_states, "brushAndEraserSize")
-      .min(5)
-      .max(50)
-      .step(1);
-    modeFolder.addColor(this.gui_states, "brushColor");
+    const bushFolder = advanceFolder.addFolder("Brush settings");
+    bushFolder.addColor(this.gui_states, "brushColor");
     // modeFolder.add(this.stateMode, "EraserSize").min(1).max(50).step(1);
-    modeFolder.add(this.gui_states, "Eraser").onChange((value) => {
-      this.gui_states.Eraser = value;
-      if (this.gui_states.Eraser) {
-        this.drawingCanvas.style.cursor =
-          // "url(https://raw.githubusercontent.com/LinkunGao/copper3d_visualisation/main/src/css/images/circular-cursor.png) 52 52, crosshair";
-          "url(https://s3-us-west-2.amazonaws.com/s.cdpn.io/4273/circular-cursor.png) 52 52, crosshair";
-      } else {
-        this.drawingCanvas.style.cursor = "crosshair";
-      }
-    });
-    modeFolder.add(this.gui_states, "clearAll");
-    modeFolder.add(this.gui_states, "undo");
-    modeFolder.add(this.gui_states, "downloadCurrentImage");
 
-    const contrastFolder = modeFolder.addFolder("contrast");
-    contrastFolder.open();
+    advanceFolder.add(this.gui_states, "downloadCurrentMask");
+
+    const contrastFolder = advanceFolder.addFolder("contrast advance settings");
     contrastFolder
       .add(
         this.mainPreSlice.volume,
@@ -1241,62 +1781,45 @@ export class nrrd_tools {
         this.repraintAllContrastSlices();
         this.nrrd_states.readyToUpdate = true;
       });
-    contrastFolder
-      .add(
-        this.mainPreSlice.volume,
-        "windowHigh",
-        this.mainPreSlice.volume.min,
-        this.mainPreSlice.volume.max,
-        1
-      )
-      .name("Window High")
-      .onChange((value) => {
-        this.nrrd_states.readyToUpdate = false;
-        this.updateSlicesContrast(value, "windowHigh");
-      })
-      .onFinishChange(() => {
-        this.repraintAllContrastSlices();
-        this.nrrd_states.readyToUpdate = true;
-      });
+    actionsFolder.open();
   }
 
   private updateSlicesContrast(value: number, flag: string) {
     switch (flag) {
       case "lowerThreshold":
         this.displaySlices.forEach((slice, index) => {
-          if (index !== 0) {
-            slice.volume.lowerThreshold = value;
-          }
+          slice.volume.lowerThreshold = value;
         });
         break;
       case "upperThreshold":
         this.displaySlices.forEach((slice, index) => {
-          if (index !== 0) {
-            slice.volume.upperThreshold = value;
-          }
+          slice.volume.upperThreshold = value;
         });
         break;
       case "windowLow":
         this.displaySlices.forEach((slice, index) => {
-          if (index !== 0) {
-            slice.volume.windowLow = value;
-          }
+          slice.volume.windowLow = value;
         });
         break;
       case "windowHigh":
         this.displaySlices.forEach((slice, index) => {
-          if (index !== 0) {
-            slice.volume.windowHigh = value;
-          }
+          slice.volume.windowHigh = value;
         });
         break;
     }
     this.repraintCurrentContrastSlice();
   }
 
-  private resetPaintArea() {
-    this.displayCanvas.style.left = this.drawingCanvas.style.left = "0px";
-    this.displayCanvas.style.top = this.drawingCanvas.style.top = "0px";
+  private resetPaintArea(l?: number, t?: number) {
+    if (l && t) {
+      this.displayCanvas.style.left = this.drawingCanvas.style.left = l + "px";
+      this.displayCanvas.style.top = this.drawingCanvas.style.top = t + "px";
+    } else {
+      this.displayCanvas.style.left = this.drawingCanvas.style.left = "";
+      this.displayCanvas.style.top = this.drawingCanvas.style.top = "";
+      this.mainAreaContainer.style.justifyContent = "center";
+      this.mainAreaContainer.style.alignItems = "center";
+    }
   }
 
   private redrawDisplayCanvas() {
@@ -1306,6 +1829,10 @@ export class nrrd_tools {
     this.originCanvas.width = this.originCanvas.width;
     if (this.currentShowingSlice) {
       this.currentShowingSlice.repaint.call(this.currentShowingSlice);
+      this.displayCtx?.save();
+
+      this.flipDisplayImageByYAxis();
+
       this.displayCtx?.drawImage(
         this.currentShowingSlice.canvas,
         0,
@@ -1313,6 +1840,7 @@ export class nrrd_tools {
         this.nrrd_states.changedWidth,
         this.nrrd_states.changedHeight
       );
+      this.displayCtx?.restore();
     }
   }
 
@@ -1322,6 +1850,8 @@ export class nrrd_tools {
     this.originCanvas.width = this.originCanvas.width;
     if (this.mainPreSlice) {
       this.mainPreSlice.repaint.call(this.mainPreSlice);
+
+      this.flipDisplayImageByYAxis();
       this.displayCtx?.drawImage(
         this.originCanvas,
         0,
@@ -1355,20 +1885,16 @@ export class nrrd_tools {
     this.drawingCanvasLayerOne.width = this.nrrd_states.changedWidth;
     this.drawingCanvasLayerOne.height = this.nrrd_states.changedHeight;
 
-    this.mainAreaContainer.style.width = this.nrrd_states.changedWidth + "px";
-    this.mainAreaContainer.style.height = this.nrrd_states.changedHeight + "px";
     this.redrawDisplayCanvas();
 
-    // this.paintedImage = undefined;
-
-    if (!this.paintedImage?.image) {
-    }
+    // if (!this.paintedImage?.image) {
+    // }
     switch (this.axis) {
       case "x":
         if (this.paintImages.x.length > 0) {
           this.paintedImage = this.filterDrawedImage(
             "x",
-            this.mainPreSlice.index
+            this.nrrd_states.currentIndex
           );
         } else {
           this.paintedImage = undefined;
@@ -1378,7 +1904,7 @@ export class nrrd_tools {
         if (this.paintImages.y.length > 0) {
           this.paintedImage = this.filterDrawedImage(
             "y",
-            this.mainPreSlice.index
+            this.nrrd_states.currentIndex
           );
         } else {
           this.paintedImage = undefined;
@@ -1389,7 +1915,7 @@ export class nrrd_tools {
         if (this.paintImages.z.length > 0) {
           this.paintedImage = this.filterDrawedImage(
             "z",
-            this.mainPreSlice.index
+            this.nrrd_states.currentIndex
           );
         } else {
           this.paintedImage = undefined;
@@ -1397,8 +1923,11 @@ export class nrrd_tools {
         break;
     }
     if (this.paintedImage?.image) {
+      this.emptyCanvas.width = this.nrrd_states.originWidth;
+      this.emptyCanvas.height = this.nrrd_states.originHeight;
+      this.emptyCtx.putImageData(this.paintedImage.image, 0, 0);
       this.drawingLayerOneCtx?.drawImage(
-        this.paintedImage.image,
+        this.emptyCanvas,
         0,
         0,
         this.nrrd_states.changedWidth,
@@ -1407,6 +1936,24 @@ export class nrrd_tools {
     }
   }
 
+  private flipDisplayImageByYAxis() {
+    // if (this.axis !== "y") {
+    //   this.displayCtx?.scale(-1, 1);
+
+    //   this.displayCtx?.translate(-this.nrrd_states.changedWidth, 0);
+    // } else {
+    //   this.displayCtx?.scale(-1, -1);
+
+    //   this.displayCtx?.translate(
+    //     -this.nrrd_states.changedWidth,
+    //     -this.nrrd_states.changedHeight
+    //   );
+    // }
+
+    this.displayCtx?.scale(-1, 1);
+
+    this.displayCtx?.translate(-this.nrrd_states.changedWidth, 0);
+  }
   private filterDrawedImage(axis: "x" | "y" | "z", sliceIndex: number) {
     return this.paintImages[axis].filter((item) => {
       return item.index === sliceIndex;
@@ -1423,35 +1970,445 @@ export class nrrd_tools {
         }, 100);
       });
   }
-  private storeAllImages() {
-    const image: HTMLImageElement = new Image();
-    image.src = this.drawingCanvasLayerOne.toDataURL();
 
+  // Not use this function now!!!
+  private verifyCanvasIsEmpty(canvas: any) {
+    this.emptyCanvas.width = canvas.width;
+    this.emptyCanvas.height = canvas.height;
+
+    const validation = canvas.toDataURL() === this.emptyCanvas.toDataURL();
+
+    return validation;
+  }
+
+  private clearDictionary(dic: skipSlicesDictType) {
+    for (var key in dic) {
+      delete dic[key];
+    }
+  }
+
+  private storeAllImages() {
+    // const image: HTMLImageElement = new Image();
+    this.emptyCanvas.width = this.nrrd_states.originWidth;
+    this.emptyCanvas.height = this.nrrd_states.originHeight;
+    this.emptyCtx.drawImage(
+      this.drawingCanvasLayerOne,
+      0,
+      0,
+      this.nrrd_states.originWidth,
+      this.nrrd_states.originHeight
+    );
+
+    const imageData = this.emptyCtx.getImageData(
+      0,
+      0,
+      this.emptyCanvas.width,
+      this.emptyCanvas.height
+    );
+
+    // 1.12.23
+    switch (this.axis) {
+      case "x":
+        const baseArr = this.emptyCtx.createImageData(
+          this.nrrd_states.nrrd_z,
+          this.nrrd_states.nrrd_y
+        ).data;
+
+        const marked_a_x = this.sliceArrayV(
+          imageData.data,
+          this.nrrd_states.nrrd_y,
+          this.nrrd_states.nrrd_z
+        );
+        const marked_b_x = this.sliceArrayH(
+          imageData.data,
+          this.nrrd_states.nrrd_y,
+          this.nrrd_states.nrrd_z
+        );
+
+        // const ratio_a_x =
+        //   this.nrrd_states.nrrd_z / this.nrrd_states.dimensions[2];
+        // const ratio_b_x =
+        //   this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
+
+        const convertXIndex = Math.floor(
+          (this.nrrd_states.currentIndex / this.nrrd_states.dimensions[0]) *
+            this.nrrd_states.nrrd_x
+        );
+        // from x the target z will replace the col pixel
+        this.replaceVerticalColPixels(
+          this.paintImages.z,
+          this.nrrd_states.dimensions[2],
+          this.nrrd_states.ratios.z,
+          marked_a_x,
+          this.nrrd_states.nrrd_x,
+          convertXIndex
+        );
+        // from x the target y will replace the col pixel
+        this.replaceVerticalColPixels(
+          this.paintImages.y,
+          this.nrrd_states.dimensions[1],
+          this.nrrd_states.ratios.y,
+          marked_b_x,
+          this.nrrd_states.nrrd_x,
+          convertXIndex
+        );
+        break;
+      case "y":
+        const marked_a_y = this.sliceArrayV(
+          imageData.data,
+          this.nrrd_states.nrrd_z,
+          this.nrrd_states.nrrd_x
+        );
+        const marked_b_y = this.sliceArrayH(
+          imageData.data,
+          this.nrrd_states.nrrd_z,
+          this.nrrd_states.nrrd_x
+        );
+
+        // const ratio_a_y =
+        //   this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
+        // const ratio_b_y =
+        //   this.nrrd_states.nrrd_z / this.nrrd_states.dimensions[2];
+
+        const convertYIndex = Math.floor(
+          (this.nrrd_states.currentIndex / this.nrrd_states.dimensions[1]) *
+            this.nrrd_states.nrrd_y
+        );
+
+        this.replaceHorizontalRowPixels(
+          this.paintImages.x,
+          this.nrrd_states.dimensions[0],
+          this.nrrd_states.ratios.x,
+          marked_a_y,
+          this.nrrd_states.nrrd_z,
+          convertYIndex
+        );
+
+        this.replaceHorizontalRowPixels(
+          this.paintImages.z,
+          this.nrrd_states.dimensions[2],
+          this.nrrd_states.ratios.z,
+          marked_b_y,
+          this.nrrd_states.nrrd_x,
+          convertYIndex
+        );
+
+        break;
+      case "z":
+        // for x slices get cols' pixels
+
+        // for y slices get rows' pixels
+        // 1. slice z 的 y轴对应了slice y的index，所以我们可以通过slice z 确定在y轴上那些行是有pixels的，我们就可以将它的y坐标（或者是行号）对应到slice y的index，并将该index下的marked image提取出来。
+        // 2. 接着我们可以通过当前slice z 的index，来确定marked image 需要替换或重组的 行 pixel array。
+
+        let maskData = this.emptyCtx.createImageData(
+          this.nrrd_states.nrrd_x,
+          this.nrrd_states.nrrd_y
+        ).data;
+
+        if (
+          this.nrrd_states.sharedPlace.z.includes(this.nrrd_states.currentIndex)
+        ) {
+          const sharedPlaceArr = this.findSliceInSharedPlace();
+          sharedPlaceArr.push(imageData);
+          if (sharedPlaceArr.length > 0) {
+            for (let i = 0; i < sharedPlaceArr.length; i++) {
+              this.replaceArray(maskData, sharedPlaceArr[i].data);
+            }
+          }
+        } else {
+          maskData = imageData.data;
+        }
+        // maskData = imageData.data;
+
+        // 1. get slice z's each row's and col's pixel as a 2d array.
+        // 1.1 get the cols' 2d array for slice x
+        const marked_a_z = this.sliceArrayV(
+          maskData,
+          this.nrrd_states.nrrd_y,
+          this.nrrd_states.nrrd_x
+        );
+
+        // 1.2 get the rows' 2d array for slice y
+        const marked_b_z = this.sliceArrayH(
+          maskData,
+          this.nrrd_states.nrrd_y,
+          this.nrrd_states.nrrd_x
+        );
+        // 1.3 get x axis ratio for converting, to match the number slice x with the slice z's x axis pixel number.
+        // const ratio_a_z =
+        //   this.nrrd_states.nrrd_x / this.nrrd_states.dimensions[0];
+
+        // // 1.4 get y axis ratio for converting
+        // const ratio_b_z =
+        //   this.nrrd_states.nrrd_y / this.nrrd_states.dimensions[1];
+        // 1.5 To identify which row/col data should be replace
+        const convertZIndex = Math.floor(
+          (this.nrrd_states.currentIndex / this.nrrd_states.dimensions[2]) *
+            this.nrrd_states.nrrd_z
+        );
+        // 2. Mapping coordinates
+        // from z the target x will replace the col pixel
+        this.replaceVerticalColPixels(
+          this.paintImages.x,
+          this.nrrd_states.dimensions[0],
+          this.nrrd_states.ratios.x,
+          marked_a_z,
+          this.nrrd_states.nrrd_z,
+          convertZIndex
+        );
+
+        // from z the target y will replace row pixel
+        this.replaceHorizontalRowPixels(
+          this.paintImages.y,
+          this.nrrd_states.dimensions[1],
+          this.nrrd_states.ratios.y,
+          marked_b_z,
+          this.nrrd_states.nrrd_x,
+          convertZIndex
+        );
+        break;
+    }
+
+    // image.src = this.emptyCanvas.toDataURL();
     let temp: paintImageType = {
-      index: this.mainPreSlice.index,
-      image,
+      index: this.nrrd_states.currentIndex,
+      image: imageData,
     };
     let drawedImage: paintImageType;
 
     switch (this.axis) {
       case "x":
-        drawedImage = this.filterDrawedImage("x", this.mainPreSlice.index);
+        drawedImage = this.filterDrawedImage(
+          "x",
+          this.nrrd_states.currentIndex
+        );
         drawedImage
-          ? (drawedImage.image = image)
+          ? (drawedImage.image = imageData)
           : this.paintImages.x?.push(temp);
         break;
       case "y":
-        drawedImage = this.filterDrawedImage("y", this.mainPreSlice.index);
+        drawedImage = this.filterDrawedImage(
+          "y",
+          this.nrrd_states.currentIndex
+        );
         drawedImage
-          ? (drawedImage.image = image)
+          ? (drawedImage.image = imageData)
           : this.paintImages.y?.push(temp);
         break;
       case "z":
-        drawedImage = this.filterDrawedImage("z", this.mainPreSlice.index);
+        drawedImage = this.filterDrawedImage(
+          "z",
+          this.nrrd_states.currentIndex
+        );
         drawedImage
-          ? (drawedImage.image = image)
+          ? (drawedImage.image = imageData)
           : this.paintImages.z?.push(temp);
         break;
     }
+  }
+  // slice array to 2d array
+  private sliceArrayH(arr: Uint8ClampedArray, row: number, col: number) {
+    const arr2D = [];
+    for (let i = 0; i < row; i++) {
+      const start = i * col * 4;
+      const end = (i + 1) * col * 4;
+      const temp = arr.slice(start, end);
+      arr2D.push(temp);
+    }
+    return arr2D;
+  }
+  private sliceArrayV(arr: Uint8ClampedArray, row: number, col: number) {
+    const arr2D = [];
+    const base = col * 4;
+    for (let i = 0; i < col; i++) {
+      const temp = [];
+      for (let j = 0; j < row; j++) {
+        const index = base * j + i * 4;
+        temp.push(arr[index]);
+        temp.push(arr[index + 1]);
+        temp.push(arr[index + 2]);
+        temp.push(arr[index + 3]);
+      }
+      arr2D.push(temp);
+    }
+    return arr2D;
+  }
+
+  /**
+   *
+   * @param paintImageArray : the target view slice's marked images array
+   * @param length : the target view slice's dimention (total slice index num)
+   * @param ratio : the target slice image's width/height ratio of its dimention length
+   * @param markedArr : current painted image's vertical 2d Array
+   * @param targetWidth : the target image width
+   * @param convertIndex : Mapping current image's index to target slice image's width/height pixel start point
+   */
+
+  private replaceVerticalColPixels(
+    paintImageArray: paintImageType[],
+    length: number,
+    ratio: number,
+    markedArr: number[][] | Uint8ClampedArray[],
+    targetWidth: number,
+    convertIndex: number
+  ) {
+    for (let i = 0, len = length; i < len; i++) {
+      const index = Math.floor(i * ratio);
+      const convertImageArray = paintImageArray[i].image.data;
+      const mark_data = markedArr[index];
+      const base_a = targetWidth * 4;
+
+      for (let j = 0, len = mark_data.length; j < len; j += 4) {
+        const start = (j / 4) * base_a + convertIndex * 4;
+        convertImageArray[start] = mark_data[j];
+        convertImageArray[start + 1] = mark_data[j + 1];
+        convertImageArray[start + 2] = mark_data[j + 2];
+        convertImageArray[start + 3] = mark_data[j + 3];
+      }
+    }
+  }
+
+  /**
+   *
+   * @param paintImageArray : the target view slice's marked images array
+   * @param length : the target view slice's dimention (total slice index num)
+   * @param ratio : the target slice image's width/height ratio of its dimention length
+   * @param markedArr : current painted image's horizontal 2d Array
+   * @param targetWidth : the target image width
+   * @param convertIndex : Mapping current image's index to target slice image's width/height pixel start point
+   */
+  private replaceHorizontalRowPixels(
+    paintImageArray: paintImageType[],
+    length: number,
+    ratio: number,
+    markedArr: number[][] | Uint8ClampedArray[],
+    targetWidth: number,
+    convertIndex: number
+  ) {
+    for (let i = 0, len = length; i < len; i++) {
+      const index = Math.floor(i * ratio);
+      const convertImageArray = paintImageArray[i].image.data;
+      const mark_data = markedArr[index] as number[];
+      const start = targetWidth * convertIndex * 4;
+      for (let j = 0, len = mark_data.length; j < len; j++) {
+        convertImageArray[start + j] = mark_data[j];
+      }
+    }
+  }
+
+  // replace Array
+  private replaceArray(
+    mainArr: number[] | Uint8ClampedArray,
+    replaceArr: number[] | Uint8ClampedArray
+  ) {
+    for (let i = 0, len = replaceArr.length; i < len; i++) {
+      if (replaceArr[i] === 0 || mainArr[i] !== 0) {
+        continue;
+      } else {
+        mainArr[i] = replaceArr[i];
+      }
+    }
+  }
+
+  private findSliceInSharedPlace() {
+    const sharedPlaceImages = [];
+
+    const base = Math.floor(
+      this.nrrd_states.currentIndex * this.nrrd_states.ratios[this.axis]
+    );
+
+    for (let i = 1; i <= 3; i++) {
+      const index = this.nrrd_states.currentIndex - i;
+      if (index < this.nrrd_states.minIndex) {
+        break;
+      } else {
+        const newIndex = Math.floor(index * this.nrrd_states.ratios[this.axis]);
+        if (newIndex === base) {
+          sharedPlaceImages.push(this.paintImages[this.axis][index].image);
+        }
+      }
+    }
+
+    for (let i = 1; i <= 3; i++) {
+      const index = this.nrrd_states.currentIndex + i;
+      if (index > this.nrrd_states.maxIndex) {
+        break;
+      } else {
+        const newIndex = Math.floor(index * this.nrrd_states.ratios[this.axis]);
+        if (newIndex === base) {
+          sharedPlaceImages.push(this.paintImages[this.axis][index].image);
+        }
+      }
+    }
+    return sharedPlaceImages;
+  }
+
+  private exportData() {
+    let exportDataFormat: exportPaintImagesType = { x: [], y: [], z: [] };
+
+    exportDataFormat.x = this.restructData(
+      this.paintImages.x,
+      this.paintImages.x.length
+    );
+
+    exportDataFormat.y = this.restructData(
+      this.paintImages.y,
+      this.paintImages.y.length
+    );
+    exportDataFormat.z = this.restructData(
+      this.paintImages.z,
+      this.paintImages.z.length
+    );
+
+    window.alert("Export all images, starting!!!");
+    try {
+      for (let i = 0; i < 3; i++) {
+        switch (i) {
+          case 0:
+            const blob = new Blob([JSON.stringify(exportDataFormat.x)], {
+              type: "text/plain;charset=utf-8",
+            });
+            saveFileAsJson(blob, "copper3D_export data_x.json");
+            break;
+
+          case 1:
+            const blob1 = new Blob([JSON.stringify(exportDataFormat.y)], {
+              type: "text/plain;charset=utf-8",
+            });
+            saveFileAsJson(blob1, "copper3D_export data_y.json");
+            break;
+          case 2:
+            const blob2 = new Blob([JSON.stringify(exportDataFormat.z)], {
+              type: "text/plain;charset=utf-8",
+            });
+            saveFileAsJson(blob2, "copper3D_export data_z.json");
+            break;
+        }
+      }
+
+      window.alert("Export all images successfully!!!");
+    } catch (error) {
+      window.alert("Export failed!");
+    }
+  }
+  private restructData(originArr: paintImageType[], len: number) {
+    const reformatData = [];
+    for (let i = 0; i < len; i++) {
+      let exportTemp: exportPaintImageType = {
+        sliceIndex: 0,
+        dataFormat:
+          "RGBA - Each successive 4-digit number forms a pixel point in data array",
+        data: [],
+      };
+      exportTemp.sliceIndex = originArr[i].index;
+      const temp = [];
+      for (let j = 0; j < originArr[i].image.data.length; j++) {
+        temp.push(originArr[i].image.data[j]);
+      }
+      exportTemp.data = temp;
+      reformatData.push(exportTemp);
+    }
+    return reformatData;
   }
 }

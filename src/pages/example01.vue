@@ -35,7 +35,12 @@
       <button @click="addPlayRate">addPlayRate</button>
       <button @click="minusPlayRate">minusPlayRate</button>
       <button
-        @click="loadNrrd('/copper3d_examples/nrrd/breast-224.nrrd', 'nrrd')"
+        @click="
+          loadNrrd(
+            '/copper3d_examples/nrrd/segmentation/ax dyn pre.nrrd',
+            'nrrd'
+          )
+        "
       >
         LoadNrrd
       </button>

@@ -142,7 +142,19 @@ interface paintImagesType {
 
 interface paintImageType {
   index: number;
-  image: HTMLImageElement;
+  image: ImageData;
+}
+
+interface exportPaintImagesType {
+  x: Array<exportPaintImageType>;
+  y: Array<exportPaintImageType>;
+  z: Array<exportPaintImageType>;
+}
+
+interface exportPaintImageType {
+  sliceIndex: number;
+  dataFormat: string;
+  data: number[];
 }
 
 interface optionsGltfExporterType {
@@ -186,6 +198,10 @@ interface dicomLoaderOptsType {
   ) => number;
 }
 
+interface skipSlicesDictType {
+  [key: string]: any;
+}
+
 export type {
   SceneMapType,
   optType,
@@ -211,4 +227,7 @@ export type {
   undoType,
   copperVolumeType,
   dicomLoaderOptsType,
+  skipSlicesDictType,
+  exportPaintImagesType,
+  exportPaintImageType,
 };

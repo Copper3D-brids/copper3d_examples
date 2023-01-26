@@ -8,9 +8,7 @@
       :max="max"
       :immediate-slice-num="immediateSliceNum"
       :contrast-index="contrastNum"
-      :is-axis-clicked="isAxisClicked"
       :init-slice-index="initSliceIndex"
-      :show-contrast="isShowContrast"
       @on-slice-change="getSliceChangedNum"
       @reset-main-area-size="resetMainAreaSize"
       @on-change-orientation="resetSlicesOrientation"
@@ -39,12 +37,9 @@ let appRenderer: Copper.copperRenderer;
 let max = ref(0);
 let immediateSliceNum = ref(0);
 let contrastNum = ref(0);
-let isAxisClicked = ref(false);
 let dialog = ref(false);
 let initSliceIndex = ref(0);
-let isShowContrast = ref(false);
 
-let viewpoint: Copper.CameraViewPoint | undefined;
 let scene: Copper.copperScene | undefined;
 let bg: HTMLDivElement = ref<any>(null);
 let c_gui: HTMLDivElement = ref<any>(null);
@@ -55,11 +50,6 @@ let gui = new GUI({ width: 300, autoPlace: false });
 let selectedContrastFolder: GUI;
 let nrrdTools: Copper.nrrd_tools;
 let loadBarMain: Copper.loadingBarType;
-let readyMain = ref(false);
-let readyC1 = ref(false);
-let readyC2 = ref(false);
-let readyC3 = ref(false);
-let readyC4 = ref(false);
 let urls: Array<string> = [];
 
 let filesCount = ref(0);
@@ -110,16 +100,16 @@ onMounted(() => {
     showContrast: false,
   };
 
-  gui.add(state, "showContrast").onChange((flag) => {
-    nrrdTools.setShowInMainArea(flag);
-    isAxisClicked.value = false;
-    isShowContrast.value = flag;
-    if (flag) {
-      max.value = nrrdTools.getMaxSliceNum()[1];
-    } else {
-      max.value = nrrdTools.getMaxSliceNum()[0];
-    }
-  });
+  // gui.add(state, "showContrast").onChange((flag) => {
+  //   nrrdTools.setShowInMainArea(flag);
+  //   isAxisClicked.value = false;
+  //   isShowContrast.value = flag;
+  //   if (flag) {
+  //     max.value = nrrdTools.getMaxSliceNum()[1];
+  //   } else {
+  //     max.value = nrrdTools.getMaxSliceNum()[0];
+  //   }
+  // });
   selectedContrastFolder = gui.addFolder("select display contrast");
   appRenderer.animate();
 });
@@ -139,13 +129,18 @@ const onCloseDialog = (flag: boolean) => {
 
 const resetSlicesOrientation = (axis: "x" | "y" | "z") => {
   nrrdTools.setSliceOrientation(axis);
-  const status = nrrdTools.getIsShowContrastState();
-  isAxisClicked.value = true;
-  if (status) {
-    max.value = nrrdTools.getMaxSliceNum()[1];
-  } else {
-    max.value = nrrdTools.getMaxSliceNum()[0];
-  }
+  max.value = nrrdTools.getMaxSliceNum()[1];
+  const { currentIndex, contrastIndex } =
+    nrrdTools.getCurrentSlicesNumAndContrastNum();
+  immediateSliceNum.value = currentIndex;
+  contrastNum.value = contrastIndex;
+  // const status = nrrdTools.getIsShowContrastState();
+  // isAxisClicked.value = true;
+  // if (status) {
+  //   max.value = nrrdTools.getMaxSliceNum()[1];
+  // } else {
+  //   max.value = nrrdTools.getMaxSliceNum()[0];
+  // }
 };
 const getSliceChangedNum = (sliceNum: number) => {
   // if (
@@ -157,6 +152,7 @@ const getSliceChangedNum = (sliceNum: number) => {
   // ) {
 
   // }
+
   nrrdTools.setSliceMoving(sliceNum);
 };
 
@@ -171,7 +167,7 @@ watchEffect(() => {
     allSlices.sort((a: any, b: any) => {
       return a.order - b.order;
     });
-
+    nrrdTools.setShowInMainArea(true);
     nrrdTools.setAllSlices(allSlices);
     initSliceIndex.value = nrrdTools.getCurrentSliceIndex();
 
@@ -191,34 +187,47 @@ watchEffect(() => {
       nrrdTools.redrawMianPreOnDisplayCanvas();
     }
 
-    max.value = nrrdTools.getMaxSliceNum()[0];
-    filesCount.value = 0;
+    max.value = nrrdTools.getMaxSliceNum()[1];
+    setTimeout(() => {
+      initSliceIndex.value = 0;
+      filesCount.value = 0;
+    }, 1000);
     firstLoad = false;
 
     const selectedState: selecedType = {};
 
-    for (let i = 0; i < allSlices.length - 1; i++) {
-      const key = "contrast" + i;
-      selectedState[key] = true;
+    for (let i = 0; i < allSlices.length; i++) {
+      if (i == 0) {
+        selectedState["pre"] = true;
+      } else {
+        const key = "contrast" + i;
+        selectedState[key] = true;
+      }
     }
 
     nrrdTools.removeGuiFolderChilden(selectedContrastFolder);
-    for (let i = 0; i < allSlices.length - 1; i++) {
-      selectedContrastFolder
-        .add(selectedState, "contrast" + i)
-        .onChange((flag) => {
-          if (flag) {
-            fileNum.value += 1;
-            nrrdTools.removeSkip(i);
-          } else {
-            fileNum.value -= 1;
-            nrrdTools.addSkip(i);
-          }
-          const maxNum = nrrdTools.getMaxSliceNum()[1];
-          if (maxNum) {
-            max.value = maxNum;
-          }
-        });
+    for (let i = 0; i < allSlices.length; i++) {
+      let name = "";
+      i === 0 ? (name = "pre") : (name = "contrast" + i);
+      selectedContrastFolder.add(selectedState, name).onChange((flag) => {
+        if (flag) {
+          fileNum.value += 1;
+          nrrdTools.addSkip(i);
+        } else {
+          fileNum.value -= 1;
+          nrrdTools.removeSkip(i);
+        }
+        const maxNum = nrrdTools.getMaxSliceNum()[1];
+        if (maxNum) {
+          max.value = maxNum;
+
+          // update 1.12.19
+          const { currentIndex, contrastIndex } =
+            nrrdTools.getCurrentSlicesNumAndContrastNum();
+          immediateSliceNum.value = currentIndex;
+          contrastNum.value = contrastIndex + 1;
+        }
+      });
     }
   }
 });
@@ -282,21 +291,6 @@ const loadAllNrrds = (urls: Array<string>) => {
         const newNrrdSlice = Object.assign(nrrdSlices, { order: i });
         allSlices.push(newNrrdSlice);
         filesCount.value += 1;
-        // let index = i;
-        // switch (index) {
-        //   case 1:
-        //     readyC1.value = true;
-        //     break;
-        //   case 2:
-        //     readyC2.value = true;
-        //     break;
-        //   case 3:
-        //     readyC3.value = true;
-        //     break;
-        //   case 4:
-        //     readyC4.value = true;
-        //     break;
-        // }
       }
     );
   }

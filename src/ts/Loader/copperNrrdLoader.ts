@@ -1,5 +1,8 @@
 import * as THREE from "three";
-import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
+// import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
+
+import { NRRDLoader } from "copper3d_plugin_nrrd";
+
 import copperScene from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
 import cm_gray from "../css/images/cm_gray.png";
@@ -49,20 +52,33 @@ export function copperNrrdLoader(
       configGui(opts);
 
       volume.axisOrder = ["x", "y", "z"];
+      // volume.matrix.set(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
 
-      const sliceZ = volume.extractSlice(
-        "z",
-        Math.floor(volume.RASDimensions[2] / 2)
-      );
-      const sliceY = volume.extractSlice(
-        "y",
-        Math.floor(volume.RASDimensions[1] / 2)
-      );
+      const rasdimensions = volume.RASDimensions;
+      const dimensions = volume.dimensions;
+
+      const ratio = volume.spacing;
+
+      const initIndexZ = Math.floor(dimensions[2] / 2);
+      const initIndexY = Math.floor(dimensions[1] / 2);
+      const initIndexX = Math.floor(dimensions[0] / 2);
+
+      const sliceZ = volume.extractSlice("z", initIndexZ * ratio[2]);
+      const sliceY = volume.extractSlice("y", initIndexY * ratio[1]);
       //x plane
-      const sliceX = volume.extractSlice(
-        "x",
-        Math.floor(volume.RASDimensions[0] / 2)
-      );
+      const sliceX = volume.extractSlice("x", initIndexX * ratio[0]);
+      sliceZ.initIndex = initIndexZ;
+      sliceY.initIndex = initIndexY;
+      sliceX.initIndex = initIndexX;
+      sliceZ.MaxIndex = dimensions[2] - 1;
+      sliceY.MaxIndex = dimensions[1] - 1;
+      sliceX.MaxIndex = dimensions[0] - 1;
+      sliceZ.RSARatio = ratio[2];
+      sliceY.RSARatio = ratio[1];
+      sliceX.RSARatio = ratio[0];
+      sliceZ.RSAMaxIndex = rasdimensions[2] - 1;
+      sliceY.RSAMaxIndex = rasdimensions[1] - 1;
+      sliceX.RSAMaxIndex = rasdimensions[0] - 1;
 
       nrrdMeshes = {
         x: sliceX.mesh,
@@ -137,69 +153,6 @@ export function copperNrrdLoader(
     }
   );
 }
-// export function copperMultiNrrdLoader(
-//   urls: Array<string>,
-//   loadingBar: loadingBarType,
-//   callback?: (
-//     volume: any,
-//     nrrdMeshes: nrrdMeshesType,
-//     nrrdSlices: nrrdSliceType,
-//   ) => void,
-// ) {
-//   // const loader = new NRRDLoader();
-//   let nrrdMeshes: nrrdMeshesType;
-//   let nrrdSlices: nrrdSliceType;
-
-//   let { loadingContainer, progress } = loadingBar;
-//   // container.appendChild(loadingContainer);
-
-//   loader.load(
-//     url,
-//     function (volume: any) {
-
-//       volume.axisOrder = ["x", "y", "z"];
-
-//       const sliceZ = volume.extractSlice(
-//         "z",
-//         Math.floor(volume.RASDimensions[2] / 4)
-//       );
-//       const sliceY = volume.extractSlice(
-//         "y",
-//         Math.floor(volume.RASDimensions[1] / 2)
-//       );
-//       //x plane
-//       const sliceX = volume.extractSlice(
-//         "x",
-//         Math.floor(volume.RASDimensions[0] / 2)
-//       );
-
-//       nrrdMeshes = {
-//         x: sliceX.mesh,
-//         y: sliceY.mesh,
-//         z: sliceZ.mesh,
-//       };
-//       nrrdSlices = {
-//         x: sliceX,
-//         y: sliceY,
-//         z: sliceZ,
-//       };
-
-//     },
-//     function (xhr: ProgressEvent<EventTarget>) {
-//       loadingContainer.style.display = "flex";
-//       progress.innerText = `${Math.ceil(
-//         (xhr.loaded / xhr.total) * 100
-//       )} % loaded`;
-//       if (xhr.loaded / xhr.total === 1) {
-//         loadingContainer.style.display = "none";
-//       }
-//     }
-//   );
-
-//   function onfinishload(volume, nrrdMeshes, nrrdSlices) {
-//     callback && callback(volume, nrrdMeshes, nrrdSlices);
-//   }
-// }
 
 export function copperNrrdLoader1(
   url: string,
