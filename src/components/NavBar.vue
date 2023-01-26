@@ -8,10 +8,10 @@
         show-input
       />
       <div class="arrows">
-        <span @click="onMagnificationClick(0.2)"
+        <span @click="onMagnificationClick(0.5)"
           ><ion-icon name="add-circle-outline"></ion-icon
         ></span>
-        <span @click="onMagnificationClick(-0.2)"
+        <span @click="onMagnificationClick(-0.5)"
           ><ion-icon name="remove-circle-outline"></ion-icon
         ></span>
         <span @click="onSwitchSliceOrientation('x')"
@@ -37,7 +37,6 @@ type Props = {
   fileNum: number;
   min?: number;
   max?: number;
-  showContrast?: boolean;
   initSliceIndex?: number;
   immediateSliceNum?: number;
   contrastIndex?: number;
@@ -53,27 +52,13 @@ let p = withDefaults(defineProps<Props>(), {
   isAxisClicked: false,
 });
 const state = reactive(p);
-const {
-  max,
-  immediateSliceNum,
-  contrastIndex,
-  isAxisClicked,
-  initSliceIndex,
-  fileNum,
-  showContrast,
-} = toRefs(state);
+const { immediateSliceNum, contrastIndex, initSliceIndex, fileNum } =
+  toRefs(state);
 const sliceNum = ref(0);
-let preViousSliceNum = p.min;
-let previousMax = 0;
-let isShowContrast = false;
-let count = 0;
-let magnification = 1;
 let filesNum = 0;
 let currentSliderNum = 0;
-let preFileNum = 999999;
 let isAxis = false;
 let isFileChange = false;
-let initMax = 0;
 
 const emit = defineEmits([
   "onSliceChange",
@@ -89,17 +74,18 @@ const openDialog = () => {
 const onSwitchSliceOrientation = (axis: string) => {
   isAxis = true;
   emit("onChangeOrientation", axis);
+  isAxis = false;
 };
 
 const onMagnificationClick = (factor: number) => {
-  magnification += factor;
-  if (magnification > 8) {
-    magnification = 8;
-  }
-  if (magnification < 1) {
-    magnification = 1;
-  }
-  emit("resetMainAreaSize", magnification);
+  // magnification += factor;
+  // if (magnification > 8) {
+  //   magnification = 8;
+  // }
+  // if (magnification < 1) {
+  //   magnification = 1;
+  // }
+  emit("resetMainAreaSize", factor);
 };
 
 const onChangeSlider = () => {
@@ -108,7 +94,7 @@ const onChangeSlider = () => {
   // }
 
   const step = sliceNum.value - currentSliderNum;
-  console.log("setp:", step);
+
   currentSliderNum += step;
   if (!isAxis && !isFileChange) {
     emit("onSliceChange", step);
@@ -117,47 +103,36 @@ const onChangeSlider = () => {
   isFileChange = false;
 };
 
-// const needToUpdatePre = () => {
-//   emit("redrawPre");
-// };
+document.addEventListener("keydown", (ev: KeyboardEvent) => {
+  if (ev.key === "ArrowUp") {
+    if (currentSliderNum > 0) {
+      currentSliderNum -= 1;
+      updateSlider();
+      emit("onSliceChange", -1);
+    }
+  }
+  if (ev.key === "ArrowDown") {
+    if (currentSliderNum < p.max) {
+      currentSliderNum += 1;
+      updateSlider();
+      emit("onSliceChange", 1);
+    }
+  }
+});
 
 const updateSlider = () => {
   sliceNum.value = currentSliderNum;
 };
 
 watchEffect(() => {
-  if (showContrast.value) {
-    currentSliderNum = currentSliderNum * filesNum;
-  } else {
-    currentSliderNum = Math.floor(currentSliderNum / filesNum);
-  }
-  isShowContrast = showContrast.value;
+  currentSliderNum =
+    immediateSliceNum.value * fileNum.value + contrastIndex.value;
   updateSlider();
 });
 
 watchEffect(() => {
-  const old = filesNum;
-  filesNum = fileNum.value;
-  if (old > 0 && isShowContrast) {
-    isFileChange = true;
-    currentSliderNum = Math.floor(currentSliderNum / old) * filesNum;
-    updateSlider();
-    isFileChange = false;
-  }
-});
-
-watchEffect(() => {
-  if (isShowContrast) {
-    currentSliderNum =
-      immediateSliceNum.value * fileNum.value + contrastIndex.value;
-  } else {
-    currentSliderNum = immediateSliceNum.value;
-  }
-  updateSlider();
-});
-
-watchEffect(() => {
-  initSliceIndex?.value && (currentSliderNum = initSliceIndex.value);
+  initSliceIndex?.value &&
+    (currentSliderNum = (initSliceIndex?.value as number) * fileNum.value);
   updateSlider();
 });
 
