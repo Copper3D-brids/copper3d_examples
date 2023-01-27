@@ -67,10 +67,10 @@ export function copperNrrdLoader(
       const initIndexY = Math.floor(dimensions[1] / 2);
       const initIndexX = Math.floor(dimensions[0] / 2);
 
-      const sliceZ = volume.extractSlice("z", initIndexZ * ratio[2]);
-      const sliceY = volume.extractSlice("y", initIndexY * ratio[1]);
+      const sliceZ = volume.extractSlice("z", initIndexZ );
+      const sliceY = volume.extractSlice("y", initIndexY);
       //x plane
-      const sliceX = volume.extractSlice("x", initIndexX * ratio[0]);
+      const sliceX = volume.extractSlice("x", initIndexX);
       sliceZ.initIndex = initIndexZ;
       sliceY.initIndex = initIndexY;
       sliceX.initIndex = initIndexX;
