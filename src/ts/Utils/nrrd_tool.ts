@@ -697,20 +697,6 @@ export class nrrd_tools {
   }
 
   private updateOriginAndChangedWH() {
-    // switch (this.axis) {
-    //   case "x":
-    //     this.nrrd_states.originWidth = this.nrrd_states.dimensions[2];
-    // this.nrrd_states.originHeight = this.nrrd_states.dimensions[1];
-    //     break;
-    //     case "y":
-    //     this.nrrd_states.originWidth = this.nrrd_states.dimensions[0];
-    // this.nrrd_states.originHeight = this.nrrd_states.dimensions[2];
-    //     break;
-    //     case "z":
-    //     this.nrrd_states.originWidth = this.nrrd_states.dimensions[0];
-    // this.nrrd_states.originHeight = this.nrrd_states.dimensions[1];
-    //     break;
-    // }
 
     this.nrrd_states.originWidth = this.originCanvas.width;
     this.nrrd_states.originHeight = this.originCanvas.height;
@@ -719,6 +705,8 @@ export class nrrd_tools {
       this.nrrd_states.originWidth * Number(this.gui_states.mainAreaSize);
     this.nrrd_states.changedHeight =
       this.nrrd_states.originWidth * Number(this.gui_states.mainAreaSize);
+      this.resizePaintArea(1);
+      this.resetPaintArea();
   }
 
   private initAllCanvas() {
