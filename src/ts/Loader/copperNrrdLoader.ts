@@ -1,7 +1,6 @@
 import * as THREE from "three";
 // import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
-
-import { NRRDLoader } from "copper3d_plugin_nrrd";
+import { NRRDLoader, version } from "copper3d_plugin_nrrd";
 
 import copperScene from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
@@ -13,7 +12,12 @@ import { TrackballControls } from "three/examples/jsm/controls/TrackballControls
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
 import { loading } from "../Utils/utils";
 
+console.log(version);
+
 const loader = new NRRDLoader();
+loader.setSegmentation(true);
+
+// loader.setSegmentationn(true);
 
 let cube: THREE.Mesh;
 let gui: GUI;
