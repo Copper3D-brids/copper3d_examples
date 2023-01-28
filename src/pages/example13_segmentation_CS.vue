@@ -1,8 +1,8 @@
 <template>
   <!-- <div id="bg" ref="base_container" @click="getPosition"> -->
   <div id="bg" ref="base_container">
-    <div ref="c_gui" id="gui"></div>
-    <div ref="nrrd_c" class="nrrd_c"></div>
+    <div ref="c_gui_ref" id="gui"></div>
+    <div ref="nrrd_c_ref" class="nrrd_c"></div>
     <NavBar
       :file-num="fileNum"
       :max="max"
@@ -32,7 +32,7 @@ import { TrackballControls } from "three/examples/jsm/controls/TrackballControls
 import { getCurrentInstance, onMounted, ref, watchEffect, reactive } from "vue";
 import NavBar from "../components/NavBar.vue";
 import Upload from "../components/Upload.vue";
-let refs = null;
+// let refs = null;
 let appRenderer: Copper.copperRenderer;
 let max = ref(0);
 let immediateSliceNum = ref(0);
@@ -41,9 +41,12 @@ let dialog = ref(false);
 let initSliceIndex = ref(0);
 
 let scene: Copper.copperScene | undefined;
-let bg: HTMLDivElement = ref<any>(null);
-let c_gui: HTMLDivElement = ref<any>(null);
-let nrrd_c: HTMLDivElement = ref<any>(null);
+let base_container = ref<HTMLDivElement>();
+let c_gui_ref = ref<HTMLDivElement>();
+let nrrd_c_ref = ref<HTMLDivElement>();
+let bg: HTMLDivElement;
+let c_gui: HTMLDivElement;
+let nrrd_c: HTMLDivElement;
 let pre_slices = ref();
 
 let gui = new GUI({ width: 300, autoPlace: false });
@@ -64,12 +67,13 @@ type selecedType = {
 };
 
 onMounted(() => {
-  let { $refs } = (getCurrentInstance() as any).proxy;
-  refs = $refs;
+  // let { $refs } = (getCurrentInstance() as any).proxy;
+  // refs = $refs;
 
-  bg = refs.base_container;
-  c_gui = $refs.c_gui;
-  nrrd_c = $refs.nrrd_c;
+  bg = base_container.value as HTMLDivElement;
+  c_gui = c_gui_ref.value as HTMLDivElement;
+  nrrd_c = nrrd_c_ref.value as HTMLDivElement;
+
   c_gui.appendChild(gui.domElement);
   appRenderer = new Copper.copperRenderer(bg);
   loadBarMain = Copper.loading();
