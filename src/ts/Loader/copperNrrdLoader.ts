@@ -12,8 +12,6 @@ import { TrackballControls } from "three/examples/jsm/controls/TrackballControls
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
 import { loading } from "../Utils/utils";
 
-console.log(NRRD.version);
-
 const loader = new NRRD.NRRDLoader();
 loader.setSegmentation(true);
 
