@@ -9,7 +9,7 @@
     "preview": "vite preview --port 3991"
   },
   "dependencies": {
-    "copper3d_plugin_nrrd": "^1.1.0",
+    "copper3d_plugin_nrrd": "^1.1.6",
     "copper3d_visualisation": "^1.11.24",
     "element-plus": "^2.2.17",
     "fflate": "^0.7.4",
