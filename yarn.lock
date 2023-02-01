@@ -351,10 +351,10 @@ copper3d_plugin_heartjs_config@^1.0.7:
   resolved "https://registry.npmjs.org/copper3d_plugin_heartjs_config/-/copper3d_plugin_heartjs_config-1.0.7.tgz"
   integrity sha512-rWhe19DQjC7Ap96uPKmQNy+IBihXTHelAowr5VdgHee+LDTLTLJ75IHsbBxi5ls1LHMxsXhGmWmT3Oy+pgva+Q==
 
-copper3d_plugin_nrrd@^1.1.6:
-  version "1.1.6"
-  resolved "https://registry.yarnpkg.com/copper3d_plugin_nrrd/-/copper3d_plugin_nrrd-1.1.6.tgz#ee60ccfe9e3cb205e3d6e0cb465d2462fb427048"
-  integrity sha512-L+eBfC9FEY2nSfvQyOP7/ZXR6IpHwyJllGg+QkTnjtr1ZaGEOOH6GpOS1fyIiVwVd++g+Xcqz0YxAmuVm5aQPA==
+copper3d_plugin_nrrd@^1.2.2:
+  version "1.2.2"
+  resolved "https://registry.yarnpkg.com/copper3d_plugin_nrrd/-/copper3d_plugin_nrrd-1.2.2.tgz#1465a7a9fdd327929912c815aad181660bde4562"
+  integrity sha512-Y7jp8c8NEgk4af4lKPM5WLgPoB+DFjrHJzULYqGpYjeph3s4omnDG4SBHE41mDn1ct4TbaKuMY0ZATYHLoIRGg==
   dependencies:
     fflate "^0.7.4"
     three "^0.148.0"
