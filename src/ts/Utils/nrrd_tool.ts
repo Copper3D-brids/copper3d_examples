@@ -82,7 +82,7 @@ export class nrrd_tools {
     maxIndex: 0,
     minIndex: 0,
     RSARatio: 0,
-    RSARatioArray: [],
+    voxelSpacing: [],
     dimensions: [],
     ratios: { x: 1, y: 1, z: 1 },
     sharedPlace: { x: [-1], y: [-1], z: [-1] },
@@ -250,7 +250,8 @@ export class nrrd_tools {
     this.nrrd_states.nrrd_z_centimeter =
       this.allSlicesArray[0].x.volume.dimensions[2];
     this.nrrd_states.dimensions = this.allSlicesArray[0].x.volume.dimensions;
-    this.nrrd_states.RSARatioArray = this.allSlicesArray[0].x.volume.spacing;
+    this.nrrd_states.voxelSpacing = this.allSlicesArray[0].x.volume.spacing;
+    console.log(this.nrrd_states.voxelSpacing);
 
     this.allSlicesArray.forEach((item, index) => {
       item.x.contrastOrder = index;
@@ -2346,18 +2347,20 @@ export class nrrd_tools {
   private exportData() {
     let exportDataFormat: exportPaintImagesType = { x: [], y: [], z: [] };
 
-    exportDataFormat.x = this.restructData(
-      this.paintImages.x,
-      this.paintImages.x.length
-    );
+    // exportDataFormat.x = this.restructData(
+    //   this.paintImages.x,
+    //   this.paintImages.x.length
+    // );
 
-    exportDataFormat.y = this.restructData(
-      this.paintImages.y,
-      this.paintImages.y.length
-    );
+    // exportDataFormat.y = this.restructData(
+    //   this.paintImages.y,
+    //   this.paintImages.y.length
+    // );
     exportDataFormat.z = this.restructData(
       this.paintImages.z,
-      this.paintImages.z.length
+      this.paintImages.z.length,
+      this.nrrd_states.nrrd_x_centimeter,
+      this.nrrd_states.nrrd_y_centimeter
     );
 
     window.alert("Export all images, starting!!!");
@@ -2365,23 +2368,29 @@ export class nrrd_tools {
       for (let i = 0; i < 3; i++) {
         switch (i) {
           case 0:
-            const blob = new Blob([JSON.stringify(exportDataFormat.x)], {
-              type: "text/plain;charset=utf-8",
-            });
-            saveFileAsJson(blob, "copper3D_export data_x.json");
+            if (exportDataFormat.x.length > 0) {
+              const blob = new Blob([JSON.stringify(exportDataFormat.x)], {
+                type: "text/plain;charset=utf-8",
+              });
+              saveFileAsJson(blob, "copper3D_export data_x.json");
+            }
             break;
 
           case 1:
-            const blob1 = new Blob([JSON.stringify(exportDataFormat.y)], {
-              type: "text/plain;charset=utf-8",
-            });
-            saveFileAsJson(blob1, "copper3D_export data_y.json");
+            if (exportDataFormat.y.length > 0) {
+              const blob1 = new Blob([JSON.stringify(exportDataFormat.y)], {
+                type: "text/plain;charset=utf-8",
+              });
+              saveFileAsJson(blob1, "copper3D_export data_y.json");
+            }
             break;
           case 2:
-            const blob2 = new Blob([JSON.stringify(exportDataFormat.z)], {
-              type: "text/plain;charset=utf-8",
-            });
-            saveFileAsJson(blob2, "copper3D_export data_z.json");
+            if (exportDataFormat.z.length > 0) {
+              const blob2 = new Blob([JSON.stringify(exportDataFormat.z)], {
+                type: "text/plain;charset=utf-8",
+              });
+              saveFileAsJson(blob2, "copper3D_export data_z.json");
+            }
             break;
         }
       }
@@ -2391,19 +2400,54 @@ export class nrrd_tools {
       window.alert("Export failed!");
     }
   }
-  private restructData(originArr: paintImageType[], len: number) {
+  private restructData(
+    originArr: paintImageType[],
+    len: number,
+    width: number,
+    height: number
+  ) {
     const reformatData = [];
+    // const convertCanvas = document.createElement("canvas");
+    // const convertCtx = convertCanvas.getContext(
+    //   "2d"
+    // ) as CanvasRenderingContext2D;
     for (let i = 0; i < len; i++) {
       let exportTemp: exportPaintImageType = {
         sliceIndex: 0,
         dataFormat:
           "RGBA - Each successive 4-digit number forms a pixel point in data array",
+        width,
+        height,
+        voxelSpacing: this.nrrd_states.voxelSpacing,
         data: [],
       };
       exportTemp.sliceIndex = originArr[i].index;
+
+      // this.setEmptyCanvasSize();
+      // convertCanvas.width = this.nrrd_states.originWidth;
+      // convertCanvas.height = this.nrrd_states.originHeight;
+      // this.emptyCtx.putImageData(originArr[i].image, 0, 0);
+
+      // convertCtx.drawImage(
+      //   this.emptyCanvas,
+      //   0,
+      //   0,
+      //   convertCanvas.width,
+      //   convertCanvas.height
+      // );
+
+      // const imageData = convertCtx.getImageData(
+      //   0,
+      //   0,
+      //   convertCanvas.width,
+      //   convertCanvas.height
+      // );
+
+      const imageData = originArr[i].image;
+
       const temp = [];
-      for (let j = 0; j < originArr[i].image.data.length; j++) {
-        temp.push(originArr[i].image.data[j]);
+      for (let j = 0; j < imageData.data.length; j++) {
+        temp.push(imageData.data[j]);
       }
       exportTemp.data = temp;
       reformatData.push(exportTemp);
