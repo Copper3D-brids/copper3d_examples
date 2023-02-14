@@ -32,6 +32,8 @@ import { TrackballControls } from "three/examples/jsm/controls/TrackballControls
 import { getCurrentInstance, onMounted, ref, watchEffect, reactive } from "vue";
 import NavBar from "../components/NavBar.vue";
 import Upload from "../components/Upload.vue";
+import axios from "axios";
+
 // let refs = null;
 let appRenderer: Copper.copperRenderer;
 let max = ref(0);
@@ -160,6 +162,105 @@ const getSliceChangedNum = (sliceNum: number) => {
   nrrdTools.setSliceMoving(sliceNum);
 };
 
+// const loadTestJsonMasks = () => {
+//   let { loadingContainer, progress } = loadBarMain;
+//   loadingContainer.style.display = "flex";
+//   progress.innerText = "Loading masks data......";
+
+//   const xhr = new XMLHttpRequest();
+//   xhr.open("GET", "/copper3d_examples/copper3D_export data_z.json", true);
+//   xhr.responseType = "json";
+//   xhr.onload = function () {
+//     if (xhr.status === 200) {
+//       const data = xhr.response;
+//       loadingContainer.style.display = "none";
+//       nrrdTools.setMasksData(data, loadBarMain);
+//     }
+//   };
+//   xhr.send();
+// };
+
+// const getMaskData = (
+//   masksa: Copper.paintImageType[],
+//   len: number,
+//   width: number,
+//   height: number
+// ) => {
+//   const masks = nrrdTools.restructData(masksa, len, width, height);
+//   // const masks = [12, 2, 2, 3];
+//   axios.post("http://127.0.0.1:8000/save_mask", { masks, len, width, height });
+// };
+
+const restructData = async (
+  originArr: Copper.paintImageType[],
+  len: number,
+  width: number,
+  height: number
+) => {
+  const reformatData = [];
+  // const convertCanvas = document.createElement("canvas");
+  // const convertCtx = convertCanvas.getContext(
+  //   "2d"
+  // ) as CanvasRenderingContext2D;
+  console.log("here");
+
+  for (let i = 0; i < len; i++) {
+    let exportTemp = {
+      sliceIndex: 0,
+      dataFormat:
+        "RGBA - Each successive 4-digit number forms a pixel point in data array",
+      width,
+      height,
+      voxelSpacing: 0,
+      spaceOrigin: 0,
+      data: [],
+    };
+    exportTemp.sliceIndex = originArr[i].index;
+
+    const imageData = originArr[i].image;
+
+    const temp = Array.from(imageData.data).map((x) => Number(x));
+    // for (let j = 0; j < imageData.data.length; j++) {
+    //   temp.push(imageData.data[j]);
+    // }
+
+    (exportTemp as any).data = temp;
+    reformatData.push(exportTemp);
+  }
+  return reformatData;
+};
+
+const worker = new Worker(new URL("../utils/worker", import.meta.url), {
+  type: "module",
+});
+
+worker.postMessage("a");
+worker.onmessage = function (ev: MessageEvent) {
+  const r = ev.data;
+  console.log(r);
+};
+const sendMaskToBackend = () => {
+  setInterval(async () => {
+    const masksData = nrrdTools.paintImages.z;
+    const dimensions = nrrdTools.getCurrentImageDimension();
+    const len = masksData.length;
+    const width = dimensions[0];
+    const height = dimensions[1];
+    if (len > 0) {
+      const masks = await restructData(masksData, len, width, height);
+      console.log("a");
+
+      await axios.post("http://127.0.0.1:8000/save_mask", {
+        masks,
+        len,
+        width,
+        height,
+      });
+      console.log("send");
+    }
+  }, 20000);
+};
+
 watchEffect(() => {
   if (
     filesCount.value != 0 &&
@@ -167,6 +268,7 @@ watchEffect(() => {
     filesCount.value === urls.length
   ) {
     console.log("All files ready!");
+
     nrrdTools.clear();
     allSlices.sort((a: any, b: any) => {
       return a.order - b.order;
@@ -179,6 +281,7 @@ watchEffect(() => {
       immediateSliceNum.value = index;
       contrastNum.value = contrastindex;
     };
+    // loadTestJsonMasks();
     if (firstLoad) {
       nrrdTools.drag({
         showNumber: true,
@@ -187,6 +290,7 @@ watchEffect(() => {
       nrrdTools.draw(scene as Copper.copperScene, gui);
 
       scene?.addPreRenderCallbackFunction(nrrdTools.start);
+      sendMaskToBackend();
     } else {
       nrrdTools.redrawMianPreOnDisplayCanvas();
     }

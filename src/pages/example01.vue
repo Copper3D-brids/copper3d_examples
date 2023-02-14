@@ -248,7 +248,6 @@ let playRate: number = 1;
 function addPlayRate() {
   playRate += 1;
   scene && scene.setPlayRate(playRate);
-  console.log(playRate);
 }
 
 function minusPlayRate() {
