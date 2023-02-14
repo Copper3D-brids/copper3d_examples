@@ -29,14 +29,16 @@ import {
   SensorReadResult_kiwrious,
   HeartRateResult_kiwrious,
   loadingBarType,
+  paintImageType,
+  exportPaintImageType,
 } from "./types/types";
 
 import "./css/style.css";
 
-export const REVISION = "v1.13.5";
+export const REVISION = "v1.13.7";
 
 console.log(
-  "%cCopper3D Visualisation %cBeta:v1.13.5",
+  "%cCopper3D Visualisation %cBeta:v1.13.7",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );
@@ -71,4 +73,6 @@ export type {
   SensorReadResult_kiwrious,
   HeartRateResult_kiwrious,
   loadingBarType,
+  paintImageType,
+  exportPaintImageType,
 };
