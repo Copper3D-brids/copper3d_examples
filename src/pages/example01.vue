@@ -323,7 +323,7 @@ function loadNrrd(url: string, name: string) {
     };
     if (scene) {
       appRenderer.setCurrentScene(scene);
-      scene?.loadNrrd(url, loadBar, a, opts);
+      scene?.loadNrrd(url, loadBar, false, a, opts);
       scene.loadViewUrl("/copper3d_examples/nrrd_view.json");
 
       allScenes.push(scene);

@@ -4,7 +4,7 @@
   </Drawer>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import Drawer from "../components/Drawer.vue";
 import X from "./example13_segmentation_CS.vue";
 function test() {
