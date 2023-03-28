@@ -14,6 +14,7 @@ import { createTexture2D_Array } from "../Utils/texture2d";
 import { copperNrrdLoader, optsType } from "../Loader/copperNrrdLoader";
 import { pickModelDefault } from "../Utils/raycaster";
 import { Controls } from "../Controls/copperControls";
+import { objLoader } from "../Loader/copperOBJLoader";
 
 export default class commonScene {
   container: HTMLDivElement;
@@ -44,12 +45,17 @@ export default class commonScene {
     );
     this.preRenderCallbackFunctions = {
       index: 0,
-      cache: {},
+      cache: [],
       add(fn) {
         if (!fn.id) {
-          fn.id = ++this.index;
-          this.cache[fn.id] = fn;
+          fn.id = this.cache.length;
+          this.cache.push(fn);
           return;
+        }
+      },
+      remove(id) {
+        if (this.cache[id]) {
+          this.cache.splice(id, 1);
         }
       },
     };
@@ -85,6 +91,10 @@ export default class commonScene {
     this.preRenderCallbackFunctions.add(callbackFunction);
     const id = this.preRenderCallbackFunctions.index;
     return id;
+  }
+
+  removePreRenderCallbackFunction(id: number) {
+    this.preRenderCallbackFunctions.remove(id);
   }
 
   pickModel(
@@ -194,15 +204,27 @@ export default class commonScene {
       });
 
       const finishLoad = (copperVolume: copperVolumeType) => {
-        if (gui) gui.add(this, "depthStep").min(0.01).max(1).step(0.01);
-        const texture2dMesh = createTexture2D_Array(
+        if (gui)
+          gui
+            .add(this as any, "depthStep")
+            .min(0.01)
+            .max(1)
+            .step(0.01);
+        const texture2d = createTexture2D_Array(
           copperVolume,
           depth,
           this.scene as THREE.Scene,
           gui
         );
 
-        let value = (texture2dMesh.material as any).uniforms["depth"].value;
+        if (opts?.getMesh) {
+          opts.getMesh(texture2d.mesh);
+        }
+        if (opts?.getCopperVolume) {
+          opts.getCopperVolume(texture2d.copperVolume, texture2d.updateTexture);
+        }
+
+        let value = (texture2d.mesh.material as any).uniforms["depth"].value;
 
         const render_texture2d = () => {
           // if (value > depth) {
@@ -211,8 +233,14 @@ export default class commonScene {
           // eval(
           //   "value += this.depthStep;if (value > depth) {value = 0;}"
           // );
+
           if (opts?.setAnimation) {
-            value = opts.setAnimation(value, depth, this.depthStep);
+            value = opts.setAnimation(
+              value,
+              depth,
+              this.depthStep,
+              copperVolume
+            );
           } else {
             value += this.depthStep;
             if (value > depth || value < 0.0) {
@@ -222,14 +250,13 @@ export default class commonScene {
             }
           }
 
-          (texture2dMesh.material as any).uniforms["depth"].value = value;
+          (texture2d.mesh.material as any).uniforms["depth"].value = value;
         };
         this.addPreRenderCallbackFunction(render_texture2d);
       };
     } else {
       const url = urls;
       copperDicomLoader(url, (copperVolume) => {
-        // console.log(copperVolume.tags);
         createTexture2D_Array(copperVolume, 1, this.scene as THREE.Scene);
       });
     }
@@ -238,6 +265,7 @@ export default class commonScene {
   loadNrrd(
     url: string,
     loadingBar: loadingBarType,
+    segmentation: boolean,
     callback?: (
       volume: any,
       nrrdMeshes: nrrdMeshesType,
@@ -246,6 +274,31 @@ export default class commonScene {
     ) => void,
     opts?: optsType
   ) {
-    copperNrrdLoader(url, loadingBar, callback, opts);
+    copperNrrdLoader(url, loadingBar, segmentation, callback, opts);
+  }
+
+  loadOBJ(url: string, callback?: (mesh: THREE.Group) => void) {
+    objLoader.load(
+      url,
+      (obj) => {
+        obj.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            (child as THREE.Mesh).material = new THREE.MeshStandardMaterial({
+              side: THREE.DoubleSide,
+              color: 0xfff000,
+            });
+          }
+        });
+        this.scene.add(obj);
+        !!callback && callback(obj);
+      }, // called when loading is in progresses
+      (xhr: any) => {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      (error: any) => {
+        console.log("An error happened");
+      }
+    );
   }
 }

@@ -72,14 +72,14 @@ const routes: Array<RouteRecordRaw> = [
         /* webpackChunkName: "example01" */ "../pages/example07_whole_nrrd.vue"
       ),
   },
-  // {
-  //   path: "/example08",
-  //   name: "Example08",
-  //   component: () =>
-  //     import(
-  //       /* webpackChunkName: "example01" */ "../pages/example08_dragAnddraw_Nrrd.vue"
-  //     ),
-  // },
+  {
+    path: "/example08",
+    name: "Example08",
+    component: () =>
+      import(
+        /* webpackChunkName: "example01" */ "../pages/example08_load_Nrrd.vue"
+      ),
+  },
   {
     path: "/example09",
     name: "Example09",
@@ -119,6 +119,12 @@ const routes: Array<RouteRecordRaw> = [
       import(
         /* webpackChunkName: "example01" */ "../pages/example13_segmentation_CS.vue"
       ),
+  },
+  {
+    path: "/example14",
+    name: "Example14",
+    component: () =>
+      import(/* webpackChunkName: "example01" */ "../pages/example14.vue"),
   },
 ];
 

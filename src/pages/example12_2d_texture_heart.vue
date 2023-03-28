@@ -38,6 +38,7 @@ onMounted(() => {
     camera: true,
     performance: true,
     light: true,
+    alpha: true,
   });
   appRenderer.closeGui();
 
@@ -47,8 +48,19 @@ onMounted(() => {
     }
   });
   const urls = [];
-  for (let i = 1; i <= 32; i++) {
-    urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
+  // for (let i = 1; i <= 32; i++) {
+  //   urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
+  // }
+  for (let i = 0; i <= 0; i++) {
+    // let j = "";
+    // if (i < 10) {
+    //   j = "00" + i;
+    // } else if (10 <= i && i < 100) {
+    //   j = "0" + i;
+    // }
+    // if (i != 132) urls.push(`/copper3d_examples/vtks/cardiohance_023/${i}.dcm`);
+    // urls.push(`/copper3d_examples/mri_4ch/${1}.dcm`);
+    urls.push(`/copper3d_examples/vtks/one_frame/${1}.dcm`);
   }
   loadModel(urls, "texture2d");
   appRenderer.animate();
@@ -68,7 +80,12 @@ function loadModel(urls: Array<string>, name: string) {
         getMesh(mesh) {
           console.log(mesh);
         },
-        setAnimation(currentValue, depth, depthStep) {
+        getCopperVolume(copperVolume, updateTexture) {
+          copperVolume.windowWidth = 424;
+          copperVolume.windowCenter = 236;
+          updateTexture(copperVolume);
+        },
+        setAnimation(currentValue, depth, depthStep, copperVolume) {
           currentValue += depthStep;
           if (currentValue > depth) {
             currentValue = 0;
@@ -76,13 +93,16 @@ function loadModel(urls: Array<string>, name: string) {
           return currentValue;
         },
       });
-      scene.loadGltf("/copper3d_examples/heart_2d.gltf", (content) => {
-        content.scale.set(3.5, 3.5, 3.5);
-        content.rotation.set(4.4, 2.8, 4.2);
-        content.position.set(4.3, 2.8, 2.8);
-        gui.add(content.rotation, "x").min(0.1).max(10).step(0.1);
-        gui.add(content.rotation, "y").min(0.1).max(10).step(0.1);
-        gui.add(content.rotation, "z").min(0.1).max(10).step(0.1);
+      scene.loadGltf("/copper3d_examples/heart_p.gltf", (content) => {
+        content.rotation.set(-12.9, 3.6, 3.3);
+        content.scale.set(3.4, 3.4, 3.4);
+        content.position.set(4.3, 1.3, 0);
+        // content.rotation.set(-12.9, 3.6, 3);
+        // content.scale.set(3.2, 3.2, 3.2);
+        // content.position.set(7.3, 4.3, -0.2);
+        gui.add(content.rotation, "x").min(-20).max(20).step(0.1);
+        gui.add(content.rotation, "y").min(-20).max(20).step(0.1);
+        gui.add(content.rotation, "z").min(-20).max(20).step(0.1);
         gui.add(content.scale, "x").min(0.1).max(10).step(0.1);
         gui.add(content.scale, "y").min(0.1).max(10).step(0.1);
         gui.add(content.scale, "z").min(0.1).max(10).step(0.1);
@@ -94,12 +114,12 @@ function loadModel(urls: Array<string>, name: string) {
       // scene.loadDicom("/copper3d_examples/mri_4ch/1.dcm");
       // scene.texture2d(url);
 
-      scene.updateBackground("#5454ad", "#18e5a7");
+      // scene.updateBackground("#5454ad", "#18e5a7");
     }
 
-    Copper.setHDRFilePath("/copper3d_examples/footprint_court_2k.hdr");
+    // Copper.setHDRFilePath("/copper3d_examples/footprint_court_2k.hdr");
 
-    appRenderer.updateEnvironment();
+    // appRenderer.updateEnvironment();
   }
 }
 

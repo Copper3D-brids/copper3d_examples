@@ -70,13 +70,16 @@ export default class copperMScene extends commonScene {
     this.controls = new OrbitControls(this.camera, this.container);
     this.preRenderCallbackFunctions = {
       index: 0,
-      cache: {},
+      cache: [],
       add(fn) {
         if (!fn.id) {
           fn.id = ++this.index;
           this.cache[fn.id] = fn;
           return;
         }
+      },
+      remove(id) {
+        if (this.cache[id]) delete this.cache[id];
       },
     };
     this.init();
@@ -320,6 +323,9 @@ export default class copperMScene extends commonScene {
     if (typeof position.z === "number") this.camera.position.z = position.z;
 
     this.setViewPoint(this.camera as THREE.PerspectiveCamera);
+  }
+  removePreRenderCallbackFunction(id: number) {
+    this.preRenderCallbackFunctions.remove(id);
   }
 
   resetView() {

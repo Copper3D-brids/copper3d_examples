@@ -29,9 +29,18 @@ export default class baseRenderer {
   constructor(container: HTMLDivElement, options?: optType) {
     this.container = container;
     this.options = options;
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
-    });
+    if (this.options?.alpha) {
+      this.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+      });
+      this.setClearColor();
+    } else {
+      this.renderer = new THREE.WebGLRenderer({
+        antialias: true,
+      });
+    }
+
     this.renderer.physicallyCorrectLights = true;
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.gui = null;
@@ -39,10 +48,15 @@ export default class baseRenderer {
     this.pmremGenerator = new THREE.PMREMGenerator(this.renderer);
     this.pmremGenerator.compileEquirectangularShader();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    if (!!this.options?.alpha) {
+      this.currentScene = new baseScene(this.container, this.renderer, true);
+    } else {
+      this.currentScene = new baseScene(this.container, this.renderer, false);
+    }
 
-    this.currentScene = new baseScene(this.container, this.renderer);
     this.currentScene.sceneName = "default";
-    this.updateEnvironment(this.currentScene.vignette);
+    !!this.currentScene.vignette &&
+      this.updateEnvironment(this.currentScene.vignette);
     this.state = {
       playbackSpeed: 1.0,
       wireframe: false,
@@ -123,6 +137,10 @@ export default class baseRenderer {
     this.gui && (this.gui.closed = true);
   }
 
+  setClearColor(clearColor = 0x000000, alpha = 0) {
+    this.renderer.setClearColor(clearColor, alpha);
+  }
+
   addGui() {
     const gui = (this.gui = new GUI({
       width: 260,
@@ -189,7 +207,14 @@ export default class baseRenderer {
     }
     this.visualCtrls = [];
 
-    setTimeout(() => {
+    let count = 0;
+
+    const timer = setInterval(() => {
+      if (this.currentScene.content.children.length > 0 || count >= 5) {
+        count = 0;
+        clearInterval(timer);
+      }
+
       let flag: boolean = true;
       let modelChildrenArray: Array<modelVisualisationDataType> = [];
       const modelChildren = this.currentScene.content
@@ -215,7 +240,7 @@ export default class baseRenderer {
 
       modelChildrenArray.forEach((item) => {
         const ctrl = (this.visualiseFolder as GUI)
-          .add(item, "visible")
+          .add(item as any, "visible")
           .name(item.name)
           .onChange(() => {
             this.currentScene.updateModelChildrenVisualisation(item.mesh);
@@ -236,8 +261,8 @@ export default class baseRenderer {
           });
         }
 
-        this.cameraFolder?.add(this.currentScene.camera, "near");
-        this.cameraFolder?.add(this.currentScene.camera, "far");
+        this.cameraFolder?.add(this.currentScene.camera as any, "near");
+        this.cameraFolder?.add(this.currentScene.camera as any, "far");
         const subCameraFolders = this.cameraFolder?.__folders;
         for (let key in subCameraFolders) {
           if (Object.prototype.hasOwnProperty.call(subCameraFolders, key)) {
@@ -246,14 +271,15 @@ export default class baseRenderer {
           }
         }
         const position = this.cameraFolder?.addFolder("position") as GUI;
-        position.add(this.currentScene.camera.position, "x");
-        position.add(this.currentScene.camera.position, "y");
-        position.add(this.currentScene.camera.position, "z");
+        position.add(this.currentScene.camera.position as any, "x");
+        position.add(this.currentScene.camera.position as any, "y");
+        position.add(this.currentScene.camera.position as any, "z");
         const up = this.cameraFolder?.addFolder("up") as GUI;
-        up.add(this.currentScene.camera.up, "x");
-        up.add(this.currentScene.camera.up, "y");
-        up.add(this.currentScene.camera.up, "z");
+        up.add(this.currentScene.camera.up as any, "x");
+        up.add(this.currentScene.camera.up as any, "y");
+        up.add(this.currentScene.camera.up as any, "z");
       }
-    }, 1500);
+      count += 1;
+    }, 3000);
   }
 }
