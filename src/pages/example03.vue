@@ -7,9 +7,9 @@
 </template>
 
 <script setup lang="ts">
-// import * as Copper from "../ts/index";
+import * as Copper from "../ts/index";
 import { GUI } from "dat.gui";
-import * as Copper from "copper3d_visualisation";
+// import * as Copper from "copper3d_visualisation";
 import "copper3d_visualisation/dist/css/style.css";
 import { getCurrentInstance, onMounted, ref } from "vue";
 
@@ -134,7 +134,7 @@ function loadNrrd(
     (gui as GUI).closed = true;
   };
   if (sceneIn) {
-    sceneIn?.loadNrrd(url, loadBar, a, opts);
+    sceneIn?.loadNrrd(url, loadBar, false, a, opts);
     sceneIn.loadViewUrl("/copper3d_examples/nrrd_view.json");
   }
   sceneIn.updateBackground("#18e5a7", "#000");
