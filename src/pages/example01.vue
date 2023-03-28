@@ -1,61 +1,84 @@
 <template>
   <!-- <div id="bg" ref="base_container" @click="getPosition"> -->
-  <div id="bg" ref="base_container">
-    <div ref="c_gui" id="gui"></div>
-    <div class="btn">
-      <!-- <button @click="loadModel('/zincmmodel1.glb', 'health1')">Health</button> -->
-      <button @click="loadModel('/copper3d_examples/heart_2d.gltf', 'health')">
-        Health
-      </button>
-      <button @click="loadModel('/copper3d_examples/Minor.glb', 'minor')">
-        Minor
-      </button>
-      <button
-        @click="loadModel('/copper3d_examples/normalActivity.glb', 'normal')"
-      >
-        Electricity normal
-      </button>
-      <button
-        @click="
-          loadModel('/copper3d_examples/Fibrillation.glb', 'fibrillation')
-        "
-      >
-        Fibrillation
-      </button>
-      <button @click="loadModel('/copper3d_examples/Severe.glb', 'severe')">
-        Severe
-      </button>
-      <button @click="loadModel('/copper3d_examples/walkmodel.glb', 'walk')">
-        Walk model
-      </button>
-      <button @click="loadModel('/copper3d_examples/test.glb', 'test')">
-        Test
-      </button>
-      <button @click="reset">Reset</button>
-      <button @click="addPlayRate">addPlayRate</button>
-      <button @click="minusPlayRate">minusPlayRate</button>
-      <button
-        @click="
-          loadNrrd(
-            '/copper3d_examples/nrrd/segmentation/ax dyn pre.nrrd',
-            'nrrd'
-          )
-        "
-      >
-        LoadNrrd
-      </button>
-      <button
-        @click="loadNrrd('/copper3d_examples/nrrd/breast.nrrd', 'nrrd-breast1')"
-      >
-        LoadNrrd-breast1
-      </button>
-      <button
-        @click="loadVtk('/copper3d_examples/nrrd/breast.vtk', 'vtk-breast1')"
-      >
-        LoadVtk-heart
-      </button>
-      <button @click="loadtime">getTime</button>
-      <button @click="getMixer">getMixer</button>
+  <div class="root">
+    <div id="bg" ref="base_container">
+      <div ref="c_gui" id="gui"></div>
+      <div class="btn">
+        <!-- <button @click="loadModel('/zincmmodel1.glb', 'health1')">Health</button> -->
+        <button
+          @click="loadModel('/copper3d_examples/heart_2d.gltf', 'health')"
+        >
+          Health
+        </button>
+        <button @click="loadModel('/copper3d_examples/mask.gltf', 'mask-glb')">
+          mask glb
+        </button>
+        <button @click="loadModel('/copper3d_examples/Minor.glb', 'minor')">
+          Minor
+        </button>
+        <button
+          @click="loadModel('/copper3d_examples/normalActivity.glb', 'normal')"
+        >
+          Electricity normal
+        </button>
+        <button
+          @click="
+            loadModel('/copper3d_examples/Fibrillation.glb', 'fibrillation')
+          "
+        >
+          Fibrillation
+        </button>
+        <button @click="loadModel('/copper3d_examples/Severe.glb', 'severe')">
+          Severe
+        </button>
+        <button @click="loadModel('/copper3d_examples/walkmodel.glb', 'walk')">
+          Walk model
+        </button>
+        <button @click="loadModel('/copper3d_examples/test.glb', 'test')">
+          Test
+        </button>
+        <button
+          @click="
+            loadModel('/copper3d_examples/digital_twin.gltf', 'digital_twin')
+          "
+        >
+          Digital twins
+        </button>
+        <button @click="reset">Reset</button>
+        <button @click="addPlayRate">addPlayRate</button>
+        <button @click="minusPlayRate">minusPlayRate</button>
+        <button
+          @click="
+            loadNrrd(
+              '/copper3d_examples/nrrd/segmentation/ax dyn pre.nrrd',
+              'nrrd'
+            )
+          "
+        >
+          LoadNrrd
+        </button>
+        <button
+          @click="
+            loadNrrd('/copper3d_examples/nrrd/breast.nrrd', 'nrrd-breast1')
+          "
+        >
+          LoadNrrd-breast1
+        </button>
+        <button
+          @click="loadVtk('/copper3d_examples/nrrd/breast.vtk', 'vtk-breast1')"
+        >
+          LoadVtk-heart
+        </button>
+        <button
+          @click="
+            loadObj('/copper3d_examples/mask_normals_inverted.obj', 'mask-mesh')
+          "
+        >
+          LoadOBJ
+        </button>
+        <button @click="loadtime">getTime</button>
+        <button @click="getMixer">getMixer</button>
+      </div>
     </div>
   </div>
 </template>
@@ -132,6 +155,7 @@ function loadModel(url: string, name: string) {
       appRenderer.setCurrentScene(scene);
 
       scene.controls.staticMoving = true;
+
       if (name === "test") {
         scene.loadGltf(url, (content) => {
           scene &&
@@ -151,6 +175,11 @@ function loadModel(url: string, name: string) {
       } else {
         scene.loadGltf(url, (mesh) => {
           // console.log(mesh);
+          // (
+          //   (mesh.children[0] as THREE.Mesh)
+          //     .material as THREE.MeshStandardMaterial
+          // ).side = THREE.DoubleSide;
+
           if (viewpoint) {
             // console.log(viewpoint);
             scene && scene.updateCamera(viewpoint);
@@ -161,6 +190,8 @@ function loadModel(url: string, name: string) {
       if (name != "walk") {
         if (name == "fibrillation") {
           scene.loadViewUrl("/copper3d_examples/arrythmiaActivity_view.json");
+        } else if (name === "digital_twin") {
+          scene.loadViewUrl("/copper3d_examples/digital_view.json");
         } else if (name === "test") {
           scene.loadViewUrl("/copper3d_examples/human_view.json");
           // 87.03340526411395, y: -1353.7649452795513
@@ -300,19 +331,41 @@ function loadNrrd(url: string, name: string) {
   }
 }
 
+function loadObj(url: string, name: string) {
+  scene = appRenderer.getSceneByName(name) as Copper.copperScene;
+  if (scene == undefined) {
+    scene = appRenderer.createScene(name);
+    if (scene) {
+      appRenderer.setCurrentScene(scene);
+      scene.loadOBJ(url, (obj_mesh) => {
+        console.log(obj_mesh);
+      });
+      scene.loadViewUrl("/copper3d_examples/nrrd_view.json");
+      allScenes.push(scene);
+    }
+  } else {
+    if (viewpoint) scene.updateCamera(viewpoint);
+    appRenderer.setCurrentScene(scene);
+  }
+}
+
 function loadVtk(url: string, name: string) {
   scene = appRenderer.getSceneByName(name) as Copper.copperScene;
+  // const url_base =
+  //   "/copper3d_examples/surfaces_lv/model_participant_000_lv_demo_endo_0";
+  // const url_base1 =
+  //   "/copper3d_examples/surfaces_lv/model_participant_000_lv_demo_epi_0";
   const url_base =
-    "/copper3d_examples/surfaces_lv/model_participant_000_lv_demo_endo_0";
+    "/copper3d_examples/vtks/one_frame/model_cardiohance_023_mri_DZ_endo_0";
   const url_base1 =
-    "/copper3d_examples/surfaces_lv/model_participant_000_lv_demo_epi_0";
+    "/copper3d_examples/vtks/one_frame/model_cardiohance_023_mri_DZ_epi_0";
   let urls: string[] = [];
   let urls_1: string[] = [];
   if (scene == undefined) {
     scene = appRenderer.createScene(name);
     if (scene) {
       appRenderer.setCurrentScene(scene);
-      for (let i = 0; i < 31; i++) {
+      for (let i = 0; i < 1; i++) {
         let temp_u = "";
         let temp_u_1 = "";
         if (i < 10) {
@@ -326,8 +379,21 @@ function loadVtk(url: string, name: string) {
         urls_1.push(temp_u_1);
       }
       scene?.loadVtks([
-        { name: "heart_inner", urls },
-        { name: "heart_outer", urls: urls_1 },
+        {
+          name: "heart_inner",
+          urls,
+          opts: { wireframe: true, color: "#cccccc" },
+        },
+        {
+          name: "heart_outer",
+          urls: urls_1,
+          opts: {
+            wireframe: false,
+            color: "rgb(214, 211, 212)",
+            transparent: true,
+            opacity: 0.5,
+          },
+        },
       ]);
       // scene?.loadVtks(urls_1);
       // scene?.loadVtk(urls[0]);
@@ -376,5 +442,8 @@ button {
   position: absolute;
   top: 150px;
   left: 2px;
+}
+.root {
+  background-color: brown;
 }
 </style>

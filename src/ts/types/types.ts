@@ -8,7 +8,11 @@ interface SceneMapType {
 }
 interface optType {
   guiOpen: boolean;
-  [key: string]: string | boolean;
+  camera?: boolean;
+  performance?: boolean;
+  light?: boolean;
+  alpha?: boolean;
+  [key: string]: string | boolean | undefined;
 }
 interface stateType {
   playbackSpeed: number;
@@ -43,8 +47,9 @@ interface cacheType {
 }
 interface preRenderCallbackFunctionType {
   index: number;
-  cache: cacheType;
+  cache: Function[];
   add: (fn: any) => void;
+  remove: (id: number) => void;
 }
 
 interface baseStateType {
@@ -75,10 +80,11 @@ interface nrrdDragImageOptType {
 
 interface nrrdDrawImageOptType {
   getMaskData?: (
-    masks: paintImageType[],
-    len: number,
+    mask: ImageData,
+    sliceId: number,
     width: number,
-    height: number
+    height: number,
+    clearAllFlag?: boolean
   ) => void;
 }
 
@@ -182,6 +188,7 @@ interface optionsGltfExporterType {
 interface vtkModels {
   name: string;
   urls: Array<string>;
+  opts?: IOptVTKLoader;
 }
 
 interface undoType {
@@ -204,15 +211,27 @@ interface copperVolumeType {
 interface dicomLoaderOptsType {
   gui?: GUI;
   getMesh?: (mesh: THREE.Mesh) => void;
+  getCopperVolume?: (
+    copperVolume: copperVolumeType,
+    updateTexture: Function
+  ) => void;
   setAnimation?: (
     currentValue: number,
     depth: number,
-    depthStep: number
+    depthStep: number,
+    copperVolume: copperVolumeType
   ) => number;
 }
 
 interface skipSlicesDictType {
   [key: string]: any;
+}
+
+interface IOptVTKLoader {
+  wireframe?: boolean;
+  color?: string | number;
+  transparent?: boolean;
+  opacity?: number;
 }
 
 export type {
@@ -244,4 +263,5 @@ export type {
   skipSlicesDictType,
   exportPaintImagesType,
   exportPaintImageType,
+  IOptVTKLoader,
 };

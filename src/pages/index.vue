@@ -7,7 +7,7 @@
     <button @click="goRouter(5)">example05_kiwrious</button>
     <button @click="goRouter(6)">example06_drag_Nrrd</button>
     <button @click="goRouter(7)">example07_whole_nrrd</button>
-    <button>example08_dragAnddraw_nrrd (out of date)</button>
+    <button @click="goRouter(8)">example08_load_nrrd</button>
     <button @click="goRouter(9)">example09_2d_texture</button>
     <button>example10_segmentation_v1 (out of date, see ex13)</button>
     <button>example10_segmentation_v2 (out of date, see ex13)</button>
@@ -15,6 +15,7 @@
     <button @click="goRouter(13)">
       example13_Segmentation_Tool_Base_CopperScene
     </button>
+    <button @click="goRouter(14)">example14_Drawer</button>
   </div>
 </template>
 

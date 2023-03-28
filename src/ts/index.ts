@@ -31,14 +31,15 @@ import {
   loadingBarType,
   paintImageType,
   exportPaintImageType,
+  IOptVTKLoader,
 } from "./types/types";
 
 import "./css/style.css";
 
-export const REVISION = "v1.13.7";
+export const REVISION = "v1.13.33";
 
 console.log(
-  "%cCopper3D Visualisation %cBeta:v1.13.7",
+  "%cCopper3D Visualisation %cBeta:v1.13.33",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );
@@ -75,4 +76,5 @@ export type {
   loadingBarType,
   paintImageType,
   exportPaintImageType,
+  IOptVTKLoader,
 };

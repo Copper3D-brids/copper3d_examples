@@ -18,8 +18,12 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import copperMScene from "../Scene/copperMScene";
 import copperScene from "../Scene/copperScene";
 import { throttle } from "./raycaster";
-import { saveFileAsJson } from "./download";
 import { switchEraserSize } from "./utils";
+import { saveFileAsJson } from "./download";
+import {
+  restructData,
+  convertReformatDataToBlob,
+} from "./workers/reformatSaveDataWorker";
 
 export class nrrd_tools {
   container: HTMLDivElement;
@@ -31,7 +35,7 @@ export class nrrd_tools {
   private allSlicesArray: Array<nrrdSliceType> = [];
   // to store all display slices, only include one orientation (e.g, x,y,z) for all contrast slices.
   private displaySlices: Array<any> = [];
-  // Designed for reload displaySlices Array
+  // Designed for reload displaySlices Array, only one orientation!
   private backUpDisplaySlices: Array<any> = [];
   private skipSlicesDic: skipSlicesDictType = {};
   // The default axis for all contrast slice is set to "z" orientation.
@@ -105,11 +109,15 @@ export class nrrd_tools {
     Mouse_Over: false,
     stepClear: 1,
     sizeFoctor: 1,
-    getMasks: (
-      masks: paintImageType[],
-      len: number,
+    clearAllFlag: false,
+    previousPanelL: -99999,
+    previousPanelT: -99999,
+    getMask: (
+      mask: ImageData,
+      sliceId: number,
       width: number,
-      height: number
+      height: number,
+      clearAllFlag: boolean
     ) => {},
     // defaultPaintCursor:
     //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
@@ -162,9 +170,11 @@ export class nrrd_tools {
     clearAll: () => {
       const text = "Are you sure remove annotations on All slice?";
       if (confirm(text) === true) {
+        this.nrrd_states.clearAllFlag = true;
         this.clearPaint();
         this.clearStoreImages();
       }
+      this.nrrd_states.clearAllFlag = false;
     },
     undo: () => {
       this.undoLastPainting();
@@ -297,39 +307,48 @@ export class nrrd_tools {
   }
 
   setMasksData(masksData: exportPaintImageType[], loadingBar?: loadingBarType) {
-    this.nrrd_states.loadMaskJson = true;
-    if (loadingBar) {
-      let { loadingContainer, progress } = loadingBar;
-      loadingContainer.style.display = "flex";
-      progress.innerText = "Loading masks data......";
-    }
-
-    this.setEmptyCanvasSize();
-    let imageData = this.emptyCtx.createImageData(
-      this.nrrd_states.nrrd_x_centimeter,
-      this.nrrd_states.nrrd_y_centimeter
-    );
-
-    masksData.forEach((mask, index) => {
-      this.setEmptyCanvasSize();
-
-      for (let j = 0; j < mask.data.length; j++) {
-        imageData.data[j] = mask.data[j];
+    if (!!masksData) {
+      this.nrrd_states.loadMaskJson = true;
+      if (loadingBar) {
+        let { loadingContainer, progress } = loadingBar;
+        loadingContainer.style.display = "flex";
+        progress.innerText = "Loading masks data......";
       }
 
-      this.emptyCtx.putImageData(imageData, 0, 0);
+      this.setEmptyCanvasSize();
 
-      this.storeAllImages(index);
-    });
-    this.nrrd_states.loadMaskJson = false;
-    this.gui_states.resetZoom();
-    if (loadingBar) {
-      loadingBar.loadingContainer.style.display = "none";
+      masksData.forEach((mask, index) => {
+        let imageData = this.emptyCtx.createImageData(
+          this.nrrd_states.nrrd_x_centimeter,
+          this.nrrd_states.nrrd_y_centimeter
+        );
+        this.setEmptyCanvasSize();
+
+        for (let j = 0; j < mask.data.length; j++) {
+          imageData.data[j] = mask.data[j];
+        }
+
+        this.emptyCtx.putImageData(imageData, 0, 0);
+
+        this.storeAllImages(index);
+      });
+      this.nrrd_states.loadMaskJson = false;
+      this.gui_states.resetZoom();
+      if (loadingBar) {
+        loadingBar.loadingContainer.style.display = "none";
+      }
     }
   }
 
   getCurrentImageDimension() {
     return this.nrrd_states.dimensions;
+  }
+
+  getVoxelSpacing() {
+    return this.nrrd_states.voxelSpacing;
+  }
+  getSpaceOrigin() {
+    return this.nrrd_states.spaceOrigin;
   }
 
   private getSharedPlace(len: number, ratio: number): number[] {
@@ -351,6 +370,11 @@ export class nrrd_tools {
     });
     return same;
   }
+
+  /**
+   * init all painted images for store images
+   * @param dimensions
+   */
 
   private initPaintImages(dimensions: Array<number>) {
     // for x slices' marks
@@ -555,6 +579,10 @@ export class nrrd_tools {
     this.paintImages.z.length = 0;
 
     this.clearDictionary(this.skipSlicesDic);
+
+    // this.nrrd_states.previousPanelL = this.nrrd_states.previousPanelT = -99999;
+    this.displayCanvas.style.left = this.drawingCanvas.style.left = "";
+    this.displayCanvas.style.top = this.drawingCanvas.style.top = "";
 
     this.backUpDisplaySlices.length = 0;
     this.mainPreSlice = undefined;
@@ -778,13 +806,11 @@ export class nrrd_tools {
      */
     this.drawingCanvas.style.zIndex = "10";
     this.drawingCanvas.style.position = "absolute";
+
     this.drawingCanvas.width = this.nrrd_states.changedWidth;
     this.drawingCanvas.height = this.nrrd_states.changedHeight;
     this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
     this.drawingCanvas.oncontextmenu = () => false;
-
-    // this.displayCanvas.style.left = this.drawingCanvas.style.left = "0px";
-    // this.displayCanvas.style.top = this.drawingCanvas.style.top = "0px";
 
     /**
      * layer1
@@ -979,7 +1005,7 @@ export class nrrd_tools {
     ) {
       if (newIndex > this.nrrd_states.maxIndex) {
         newIndex = this.nrrd_states.maxIndex;
-        this.nrrd_states.contrastNum = 4;
+        this.nrrd_states.contrastNum = this.displaySlices.length - 1;
       } else if (newIndex < this.nrrd_states.minIndex) {
         newIndex = this.nrrd_states.minIndex;
         this.nrrd_states.contrastNum = 0;
@@ -1059,7 +1085,7 @@ export class nrrd_tools {
     let subViewFolder: GUI;
 
     if (!!opts) {
-      this.nrrd_states.getMasks = opts?.getMaskData as any;
+      this.nrrd_states.getMask = opts?.getMaskData as any;
     }
 
     this.sceneIn = sceneIn;
@@ -1146,13 +1172,16 @@ export class nrrd_tools {
       passive: false,
     });
 
-    const handleDragPaintPanel = throttle((e: MouseEvent) => {
+    const handleDragPaintPanel = (e: MouseEvent) => {
       this.drawingCanvas.style.cursor = "grabbing";
+      this.nrrd_states.previousPanelL = e.clientX - panelMoveInnerX;
+      this.nrrd_states.previousPanelT = e.clientY - panelMoveInnerY;
       this.displayCanvas.style.left = this.drawingCanvas.style.left =
-        e.clientX - panelMoveInnerX + "px";
+        this.nrrd_states.previousPanelL + "px";
       this.displayCanvas.style.top = this.drawingCanvas.style.top =
-        e.clientY - panelMoveInnerY + "px";
-    }, 80);
+        this.nrrd_states.previousPanelT + "px";
+    };
+    // throttle(, 80);
     const handleDisplayMouseMove = (e: MouseEvent) => {
       this.nrrd_states.Mouse_Over_x = e.offsetX;
       this.nrrd_states.Mouse_Over_y = e.offsetY;
@@ -1251,10 +1280,15 @@ export class nrrd_tools {
           }
         } else if (e.button === 2) {
           rightclicked = true;
-          let offsetX = parseInt(this.drawingCanvas.style.left);
-          let offsetY = parseInt(this.drawingCanvas.style.top);
+
+          // let offsetX = parseInt(this.drawingCanvas.style.left);
+          // let offsetY = parseInt(this.drawingCanvas.style.top);
+          let offsetX = this.drawingCanvas.offsetLeft;
+          let offsetY = this.drawingCanvas.offsetTop;
+
           panelMoveInnerX = e.clientX - offsetX;
           panelMoveInnerY = e.clientY - offsetY;
+
           this.drawingCanvas.style.cursor = "grab";
           this.drawingCanvas.addEventListener("pointerup", handlePointerUp);
           this.drawingCanvas.addEventListener(
@@ -1336,13 +1370,13 @@ export class nrrd_tools {
 
           // update 1.12.23
 
-          const imageData = this.drawingCtx.getImageData(
-            0,
-            0,
-            this.drawingCanvas.width,
-            this.drawingCanvas.height
-          );
-          console.log("Paint mark data -----> :", imageData);
+          // const imageData = this.drawingCtx.getImageData(
+          //   0,
+          //   0,
+          //   this.drawingCanvas.width,
+          //   this.drawingCanvas.height
+          // );
+          // console.log("Paint mark data -----> :", imageData);
 
           Is_Painting = false;
 
@@ -1705,13 +1739,18 @@ export class nrrd_tools {
       .add(this.gui_states, "brushAndEraserSize")
       .min(5)
       .max(50)
-      .step(1);
+      .step(1)
+      .onChange(() => {
+        if (this.gui_states.Eraser) {
+          this.drawingCanvas.style.cursor = switchEraserSize(
+            this.gui_states.brushAndEraserSize
+          );
+        }
+      });
 
     actionsFolder.add(this.gui_states, "Eraser").onChange((value) => {
       this.gui_states.Eraser = value;
       if (this.gui_states.Eraser) {
-        // this.drawingCanvas.style.cursor =
-        //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/circular-cursor.png) 52 52, crosshair";
         this.drawingCanvas.style.cursor = switchEraserSize(
           this.gui_states.brushAndEraserSize
         );
@@ -1853,8 +1892,6 @@ export class nrrd_tools {
       this.displayCanvas.style.left = this.drawingCanvas.style.left = l + "px";
       this.displayCanvas.style.top = this.drawingCanvas.style.top = t + "px";
     } else {
-      this.displayCanvas.style.left = this.drawingCanvas.style.left = "";
-      this.displayCanvas.style.top = this.drawingCanvas.style.top = "";
       this.mainAreaContainer.style.justifyContent = "center";
       this.mainAreaContainer.style.alignItems = "center";
     }
@@ -2222,25 +2259,13 @@ export class nrrd_tools {
     }
 
     if (!this.nrrd_states.loadMaskJson) {
-      this.nrrd_states.getMasks(
-        this.paintImages.z,
-        this.paintImages.z.length,
+      this.nrrd_states.getMask(
+        imageData,
+        this.nrrd_states.currentIndex,
         this.nrrd_states.nrrd_x_centimeter,
-        this.nrrd_states.nrrd_y_centimeter
+        this.nrrd_states.nrrd_y_centimeter,
+        this.nrrd_states.clearAllFlag
       );
-      // if (!!this.exportTimer) {
-      //   clearTimeout(this.exportTimer);
-      // }
-
-      // this.exportTimer = setTimeout(() => {
-      //   const masks = this.restructData(
-      //     this.paintImages.z,
-      //     this.paintImages.z.length,
-      //     this.nrrd_states.nrrd_x_centimeter,
-      //     this.nrrd_states.nrrd_y_centimeter
-      //   );
-      //   this.nrrd_states.getMasks(masks);
-      // }, 10000);
     }
   }
   // slice array to 2d array
@@ -2433,107 +2458,54 @@ export class nrrd_tools {
     //   this.paintImages.y,
     //   this.paintImages.y.length
     // );
-    exportDataFormat.z = this.restructData(
+
+    // const worker = new Worker(
+    //   new URL("./workers/reformatSaveDataWorker.ts", import.meta.url),
+    //   {
+    //     type: "module",
+    //   }
+    // );
+
+    window.alert("Export masks, starting!!!");
+    const masks = restructData(
       this.paintImages.z,
-      this.paintImages.z.length,
+      this.nrrd_states.nrrd_z_centimeter,
       this.nrrd_states.nrrd_x_centimeter,
       this.nrrd_states.nrrd_y_centimeter
     );
-
-    window.alert("Export all images, starting!!!");
-    try {
-      for (let i = 0; i < 3; i++) {
-        switch (i) {
-          case 0:
-            if (exportDataFormat.x.length > 0) {
-              const blob = new Blob([JSON.stringify(exportDataFormat.x)], {
-                type: "text/plain;charset=utf-8",
-              });
-              saveFileAsJson(blob, "copper3D_export data_x.json");
-            }
-            break;
-
-          case 1:
-            if (exportDataFormat.y.length > 0) {
-              const blob1 = new Blob([JSON.stringify(exportDataFormat.y)], {
-                type: "text/plain;charset=utf-8",
-              });
-              saveFileAsJson(blob1, "copper3D_export data_y.json");
-            }
-            break;
-          case 2:
-            if (exportDataFormat.z.length > 0) {
-              const blob2 = new Blob([JSON.stringify(exportDataFormat.z)], {
-                type: "text/plain;charset=utf-8",
-              });
-              saveFileAsJson(blob2, "copper3D_export data_z.json");
-            }
-            break;
-        }
-      }
-
-      window.alert("Export all images successfully!!!");
-    } catch (error) {
-      console.log(error);
-
+    const blob = convertReformatDataToBlob(masks);
+    if (blob) {
+      saveFileAsJson(blob, "copper3D_export data_z.json");
+      window.alert("Export masks successfully!!!");
+    } else {
       window.alert("Export failed!");
     }
-  }
-  restructData(
-    originArr: paintImageType[],
-    len: number,
-    width: number,
-    height: number
-  ) {
-    const reformatData = [];
-    // const convertCanvas = document.createElement("canvas");
-    // const convertCtx = convertCanvas.getContext(
-    //   "2d"
-    // ) as CanvasRenderingContext2D;
-    for (let i = 0; i < len; i++) {
-      let exportTemp: exportPaintImageType = {
-        sliceIndex: 0,
-        dataFormat:
-          "RGBA - Each successive 4-digit number forms a pixel point in data array",
-        width,
-        height,
-        voxelSpacing: this.nrrd_states.voxelSpacing,
-        spaceOrigin: this.nrrd_states.spaceOrigin,
-        data: [],
-      };
-      exportTemp.sliceIndex = originArr[i].index;
 
-      // this.setEmptyCanvasSize();
-      // convertCanvas.width = this.nrrd_states.originWidth;
-      // convertCanvas.height = this.nrrd_states.originHeight;
-      // this.emptyCtx.putImageData(originArr[i].image, 0, 0);
+    // worker.postMessage({
+    //   masksData: this.paintImages.z,
+    //   len: this.paintImages.z.length,
+    //   width: this.nrrd_states.nrrd_x_centimeter,
+    //   height: this.nrrd_states.nrrd_y_centimeter,
+    //   type: "reformat",
+    // });
 
-      // convertCtx.drawImage(
-      //   this.emptyCanvas,
-      //   0,
-      //   0,
-      //   convertCanvas.width,
-      //   convertCanvas.height
-      // );
+    // worker.onmessage = (ev: MessageEvent) => {
+    //   const result = ev.data;
+    //   if (result.type === "reformat") {
+    //     exportDataFormat.z = result.masks;
 
-      // const imageData = convertCtx.getImageData(
-      //   0,
-      //   0,
-      //   convertCanvas.width,
-      //   convertCanvas.height
-      // );
-
-      const imageData = originArr[i].image;
-
-      const temp = [];
-      for (let j = 0; j < imageData.data.length; j++) {
-        temp.push(imageData.data[j]);
-      }
-
-      exportTemp.data = temp;
-      reformatData.push(exportTemp);
-    }
-
-    return reformatData;
+    //     worker.postMessage({
+    //       masksData: exportDataFormat.z,
+    //       type: "saveBlob",
+    //     });
+    //   } else if (result.type === "saveBlob") {
+    //     if (result.data) {
+    //       saveFileAsJson(result.data, "copper3D_export data_z.json");
+    //       window.alert("Export masks successfully!!!");
+    //     } else {
+    //       window.alert("Export failed!");
+    //     }
+    //   }
+    // };
   }
 }
