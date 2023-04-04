@@ -1,7 +1,8 @@
 import * as THREE from "three";
 // import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
 // import * as NRRD from "copper3d_plugin_nrrd";
-import { NRRDLoader } from "copper3d_plugin_nrrd";
+// import { NRRDLoader } from "copper3d_plugin_nrrd";
+import {NRRDLoader} from "../nrrdjs/NRRDLoader"
 
 import copperScene from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
@@ -45,6 +46,7 @@ export function copperNrrdLoader(
   ) => void,
   opts?: optsType
 ) {
+
   let nrrdMeshes: nrrdMeshesType;
   let nrrdSlices: nrrdSliceType;
 
@@ -68,10 +70,10 @@ export function copperNrrdLoader(
       const initIndexY = Math.floor(dimensions[1] / 2);
       const initIndexX = Math.floor(dimensions[0] / 2);
 
-      const sliceZ = volume.extractSlice("z", initIndexZ);
-      const sliceY = volume.extractSlice("y", initIndexY);
+      const sliceZ = volume.extractSlice("z", initIndexZ*ratio[2]);
+      const sliceY = volume.extractSlice("y", initIndexY*ratio[1]);
       //x plane
-      const sliceX = volume.extractSlice("x", initIndexX);
+      const sliceX = volume.extractSlice("x", initIndexX*ratio[0]);
       sliceZ.initIndex = initIndexZ;
       sliceY.initIndex = initIndexY;
       sliceX.initIndex = initIndexX;

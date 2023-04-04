@@ -227,7 +227,7 @@ watchEffect(() => {
       immediateSliceNum.value = index;
       contrastNum.value = contrastindex;
     };
-    loadTestJsonMasks();
+    // loadTestJsonMasks();
     if (firstLoad) {
       nrrdTools.drag({
         showNumber: true,
