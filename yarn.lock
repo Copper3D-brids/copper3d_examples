@@ -51,10 +51,10 @@
   resolved "https://registry.npmjs.org/@sxzz/popperjs-es/-/popperjs-es-2.11.7.tgz"
   integrity sha512-Ccy0NlLkzr0Ex2FKvh2X+OyERHXJ88XJ1MXtsI9y9fGexlaXaVTPzBCRBwIxFkORuOb+uBqeu+RqnpgYTEZRUQ==
 
-"@types/dat.gui@^0.7.7":
-  version "0.7.7"
-  resolved "https://registry.npmjs.org/@types/dat.gui/-/dat.gui-0.7.7.tgz"
-  integrity sha512-CxLCme0He5Jk3uQwfO/fGZMyNhb/ypANzqX0yU9lviBQMlen5SOvQTBQ/Cd9x5mFlUAK5Tk8RgvTyLj1nYkz+w==
+"@types/dat.gui@^0.7.9":
+  version "0.7.9"
+  resolved "https://registry.yarnpkg.com/@types/dat.gui/-/dat.gui-0.7.9.tgz#9e16985a0a6b4ef652c53212ee813e5968aff9a8"
+  integrity sha512-UiqZasQIask5cUwWOO6BgOjP1dNj9ChYtmeAb4WTKs5IJ7ha3ATRTeXY7/TzlmEZznh40lS6Ov5BdNA+tU+fWQ==
 
 "@types/file-saver@^2.0.5":
   version "2.0.5"
@@ -372,28 +372,30 @@ copper3d_plugin_heartjs_config@^1.0.7:
   resolved "https://registry.npmjs.org/copper3d_plugin_heartjs_config/-/copper3d_plugin_heartjs_config-1.0.7.tgz"
   integrity sha512-rWhe19DQjC7Ap96uPKmQNy+IBihXTHelAowr5VdgHee+LDTLTLJ75IHsbBxi5ls1LHMxsXhGmWmT3Oy+pgva+Q==
 
-copper3d_plugin_nrrd@^1.2.2:
-  version "1.2.2"
-  resolved "https://registry.npmjs.org/copper3d_plugin_nrrd/-/copper3d_plugin_nrrd-1.2.2.tgz"
-  integrity sha512-Y7jp8c8NEgk4af4lKPM5WLgPoB+DFjrHJzULYqGpYjeph3s4omnDG4SBHE41mDn1ct4TbaKuMY0ZATYHLoIRGg==
+copper3d_plugin_nrrd@^1.3.1:
+  version "1.3.1"
+  resolved "https://registry.yarnpkg.com/copper3d_plugin_nrrd/-/copper3d_plugin_nrrd-1.3.1.tgz#2a46192a9deaadb273bfe5a260021bb2a55ff890"
+  integrity sha512-DTe+H3It6Xkd6T5aVtjqlmhdTzScb3+fVqcrHQuVFjF8d7xfANIhg1nZ0WREKvqjrmAeSiDcgQiaG8Zqm1frYg==
   dependencies:
     fflate "^0.7.4"
     three "^0.148.0"
 
-copper3d_visualisation@^1.11.24:
-  version "1.11.24"
-  resolved "https://registry.npmjs.org/copper3d_visualisation/-/copper3d_visualisation-1.11.24.tgz"
-  integrity sha512-22LXHqKFefmywsLb5OVf9WlGRpE5hKbNO3ccg9PCnazsYgr455hCvbt4GjMi/EJVDbbhWj/4mQ/4nNLlVfehtg==
+copper3d_visualisation@^1.14.0:
+  version "1.14.0"
+  resolved "https://registry.yarnpkg.com/copper3d_visualisation/-/copper3d_visualisation-1.14.0.tgz#1a859482d3e38359ab4b771d7d16bbb2b811abb6"
+  integrity sha512-qqveVG/04xIbkDTE0ReJCcVXM9ewGi0voT+TJAsMOqc5/SsY4qPZqtDl51ZtGcHV7Q8TA14GXbL8TusyrueLjg==
   dependencies:
-    "@types/dat.gui" "^0.7.7"
+    "@types/dat.gui" "^0.7.9"
     "@types/three" "^0.140.0"
     copper3d_plugin_heart_k "^1.0.14"
+    copper3d_plugin_nrrd "^1.3.1"
     dat.gui "^0.7.9"
     dicom-parser "^1.8.13"
     fflate "^0.7.3"
+    file-saver "^2.0.5"
     glsl-blend-soft-light "^1.0.5"
     glsl-film-grain "^1.0.4"
-    three "^0.144.0"
+    three "^0.150.1"
 
 core-util-is@~1.0.0:
   version "1.0.3"
@@ -1262,11 +1264,6 @@ supports-preserve-symlinks-flag@^1.0.0:
   version "1.0.0"
   resolved "https://registry.npmjs.org/supports-preserve-symlinks-flag/-/supports-preserve-symlinks-flag-1.0.0.tgz"
   integrity sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==
-
-three@^0.144.0:
-  version "0.144.0"
-  resolved "https://registry.npmjs.org/three/-/three-0.144.0.tgz"
-  integrity sha512-R8AXPuqfjfRJKkYoTQcTK7A6i3AdO9++2n8ubya/GTU+fEHhYKu1ZooRSCPkx69jbnzT7dD/xEo6eROQTt2lJw==
 
 three@^0.148.0:
   version "0.148.0"

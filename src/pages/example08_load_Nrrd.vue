@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { GUI } from "dat.gui";
-import * as THREE from 'three';
+import * as THREE from "three";
 import * as Copper from "../ts/index";
 // import * as Copper from "copper3d_visualisation";
 import "copper3d_visualisation/dist/css/style.css";
@@ -62,7 +62,7 @@ function reset() {
 
 function loadNrrd(
   url: string,
-  url_1:string,
+  url_1: string,
   name: string,
   sceneIn: Copper.copperMScene,
   c_gui: any
@@ -81,30 +81,58 @@ function loadNrrd(
     (gui as GUI).closed = true;
     console.log(volume);
 
-     const geometry = new THREE.SphereGeometry(5,32,16)
-      const material = new THREE.MeshBasicMaterial({color: 0xffff00})
+    const geometry = new THREE.SphereGeometry(5, 32, 16);
+    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
 
-      const sphere1 = new THREE.Mesh(geometry, material)
-      const sphere2 = new THREE.Mesh(geometry, material)
-      const sphere3 = new THREE.Mesh(geometry, material)
-      const sphere4 = new THREE.Mesh(geometry, material)
-      const origin = volume.header.space_origin.map((num:any)=>Number(num))
-      const spacing = volume.spacing
-      const pixelTspacing = volume.dimensions
-      // sphere1.position.add(new THREE.Vector3(origin[0]+5,origin[1]-13,origin[2]+32))
-      // sphere2.position.add(new THREE.Vector3(origin[0]+pixelTspacing[0]*spacing[0]+5, origin[1]-13, origin[2]+32))
-      // sphere3.position.add(new THREE.Vector3(origin[0]+pixelTspacing[0]*spacing[0]+5, origin[1]+pixelTspacing[1]*spacing[1]-13, origin[2]+32))
-      // sphere4.position.add(new THREE.Vector3(origin[0]+5, origin[1]+pixelTspacing[1]*spacing[1]-13, origin[2]+32))
-      sphere1.position.add(new THREE.Vector3(origin[0]+5,origin[1]-13,origin[2]+32))
-      sphere2.position.add(new THREE.Vector3(origin[0]+pixelTspacing[0]*spacing[0]+5, origin[1]-13, origin[2]+32))
-      sphere3.position.add(new THREE.Vector3(origin[0]+pixelTspacing[0]*spacing[0]+5, origin[1]+pixelTspacing[1]*spacing[1]-13, origin[2]+32))
-      sphere4.position.add(new THREE.Vector3(origin[0]+5, origin[1]+pixelTspacing[1]*spacing[1]-13, origin[2]+32))
-      appRenderer.sceneInfos[0].addObject(sphere1);
-      appRenderer.sceneInfos[0].addObject(sphere2);
-      appRenderer.sceneInfos[0].addObject(sphere3);
-      appRenderer.sceneInfos[0].addObject(sphere4);
-      (gui as GUI).add(sphere1.position,"x").max(500).min(-500).step(1);
-      (gui as GUI).add(sphere1.position,"y").max(500).min(-500).step(1);
+    const sphere1 = new THREE.Mesh(geometry, material);
+    const sphere2 = new THREE.Mesh(geometry, material);
+    const sphere3 = new THREE.Mesh(geometry, material);
+    const sphere4 = new THREE.Mesh(geometry, material);
+    const origin = volume.header.space_origin.map((num: any) => Number(num));
+    const spacing = volume.spacing;
+    const pixelTspacing = volume.dimensions;
+    // sphere1.position.add(new THREE.Vector3(origin[0]+5,origin[1]-13,origin[2]+32))
+    // sphere2.position.add(new THREE.Vector3(origin[0]+pixelTspacing[0]*spacing[0]+5, origin[1]-13, origin[2]+32))
+    // sphere3.position.add(new THREE.Vector3(origin[0]+pixelTspacing[0]*spacing[0]+5, origin[1]+pixelTspacing[1]*spacing[1]-13, origin[2]+32))
+    // sphere4.position.add(new THREE.Vector3(origin[0]+5, origin[1]+pixelTspacing[1]*spacing[1]-13, origin[2]+32))
+    sphere1.position.add(
+      new THREE.Vector3(origin[0] + 5, origin[1] - 13, origin[2] + 32)
+    );
+    sphere2.position.add(
+      new THREE.Vector3(
+        origin[0] + pixelTspacing[0] * spacing[0] + 5,
+        origin[1] - 13,
+        origin[2] + 32
+      )
+    );
+    sphere3.position.add(
+      new THREE.Vector3(
+        origin[0] + pixelTspacing[0] * spacing[0] + 5,
+        origin[1] + pixelTspacing[1] * spacing[1] - 13,
+        origin[2] + 32
+      )
+    );
+    sphere4.position.add(
+      new THREE.Vector3(
+        origin[0] + 5,
+        origin[1] + pixelTspacing[1] * spacing[1] - 13,
+        origin[2] + 32
+      )
+    );
+    appRenderer.sceneInfos[0].addObject(sphere1);
+    appRenderer.sceneInfos[0].addObject(sphere2);
+    appRenderer.sceneInfos[0].addObject(sphere3);
+    appRenderer.sceneInfos[0].addObject(sphere4);
+    (gui as GUI)
+      .add(sphere1.position as any, "x")
+      .max(500)
+      .min(-500)
+      .step(1);
+    (gui as GUI)
+      .add(sphere1.position as any, "y")
+      .max(500)
+      .min(-500)
+      .step(1);
 
     appRenderer.sceneInfos[0].scene.add(nrrdMesh.x, nrrdMesh.y, nrrdMesh.z);
     // appRenderer.sceneInfos[0].scene.add(nrrdMesh.y);
@@ -130,16 +158,16 @@ function loadNrrd(
   };
   if (sceneIn) {
     sceneIn?.loadNrrd(url, loadBar1, true, funa, opts);
-    sceneIn?.loadOBJ(url_1, (content)=>{
-        console.log(content);
-          //  content.position.set(5, -43, 32);
-          //  content.traverse((child)=>{
-          //       if(child as THREE.Mesh){
-          //         ((child as THREE.Mesh).material as THREE.MeshStandardMaterial).color = new THREE.Color("#4aede0")
-          //       }
-          //  })
-        // ((content.children[2] as THREE.Mesh).material as THREE.MeshStandardMaterial).color = new THREE.Color("#4aede0")
-      })
+    sceneIn?.loadOBJ(url_1, (content) => {
+      console.log(content);
+      //  content.position.set(5, -43, 32);
+      //  content.traverse((child)=>{
+      //       if(child as THREE.Mesh){
+      //         ((child as THREE.Mesh).material as THREE.MeshStandardMaterial).color = new THREE.Color("#4aede0")
+      //       }
+      //  })
+      // ((content.children[2] as THREE.Mesh).material as THREE.MeshStandardMaterial).color = new THREE.Color("#4aede0")
+    });
     sceneIn.loadViewUrl("/copper3d_examples/nrrd_view.json");
   }
   sceneIn.updateBackground("#18e5a7", "#000");

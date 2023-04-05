@@ -1,8 +1,7 @@
 import * as THREE from "three";
 // import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
 // import * as NRRD from "copper3d_plugin_nrrd";
-// import { NRRDLoader } from "copper3d_plugin_nrrd";
-import {NRRDLoader} from "../nrrdjs/NRRDLoader"
+import { NRRDLoader } from "copper3d_plugin_nrrd";
 
 import copperScene from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
@@ -46,7 +45,6 @@ export function copperNrrdLoader(
   ) => void,
   opts?: optsType
 ) {
-
   let nrrdMeshes: nrrdMeshesType;
   let nrrdSlices: nrrdSliceType;
 
@@ -70,10 +68,10 @@ export function copperNrrdLoader(
       const initIndexY = Math.floor(dimensions[1] / 2);
       const initIndexX = Math.floor(dimensions[0] / 2);
 
-      const sliceZ = volume.extractSlice("z", initIndexZ*ratio[2]);
-      const sliceY = volume.extractSlice("y", initIndexY*ratio[1]);
+      const sliceZ = volume.extractSlice("z", initIndexZ * ratio[2]);
+      const sliceY = volume.extractSlice("y", initIndexY * ratio[1]);
       //x plane
-      const sliceX = volume.extractSlice("x", initIndexX*ratio[0]);
+      const sliceX = volume.extractSlice("x", initIndexX * ratio[0]);
       sliceZ.initIndex = initIndexZ;
       sliceY.initIndex = initIndexY;
       sliceX.initIndex = initIndexX;
@@ -98,23 +96,35 @@ export function copperNrrdLoader(
         z: sliceZ,
       };
 
+      const state = {
+        indexX: initIndexX,
+        indexY: initIndexY,
+        indexZ: initIndexZ,
+      };
+
       if (gui) {
         gui
-          .add(sliceX, "index", 0, volume.RASDimensions[0], 1)
+          .add(state, "indexX", 0, volume.dimensions[0] - 1)
+          .step(1)
           .name("indexX")
-          .onChange(function () {
+          .onChange(function (val) {
+            sliceX.index = val * sliceX.RSARatio;
             sliceX.repaint.call(sliceX);
           });
         gui
-          .add(sliceY, "index", 0, volume.RASDimensions[1], 1)
+          .add(state, "indexY", 0, volume.dimensions[1] - 1)
+          .step(1)
           .name("indexY")
-          .onChange(function () {
+          .onChange(function (val) {
+            sliceY.index = val * sliceY.RSARatio;
             sliceY.repaint.call(sliceY);
           });
         gui
-          .add(sliceZ, "index", 0, volume.RASDimensions[2] - 1, 1)
+          .add(state, "indexZ", 0, volume.dimensions[2] - 1)
+          .step(1)
           .name("indexZ")
-          .onChange(function () {
+          .onChange(function (val) {
+            sliceZ.index = val * sliceZ.RSARatio;
             sliceZ.repaint.call(sliceZ);
           });
 
