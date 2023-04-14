@@ -160,6 +160,7 @@ export class nrrd_tools {
     brushColor: "#3fac58",
     brushAndEraserSize: 15,
     cursor: "dot",
+    label: "default",
     // EraserSize: 25,
     clear: () => {
       // const text = "Are you sure remove annotations on Current slice?";
@@ -775,7 +776,6 @@ export class nrrd_tools {
   }
 
   private updateCurrentContrastSlice() {
-    
     this.currentShowingSlice = this.displaySlices[this.nrrd_states.contrastNum];
     return this.currentShowingSlice;
   }
@@ -1022,7 +1022,7 @@ export class nrrd_tools {
         this.mainPreSlice.index = newIndex * this.nrrd_states.RSARatio;
         // clear drawing canvas, and display next slicez
         this.setSyncsliceNum();
-        
+
         if (newIndex != this.nrrd_states.currentIndex) {
           this.nrrd_states.switchSliceFlag = true;
           this.drawingCanvasLayerOne.width = this.drawingCanvasLayerOne.width;
@@ -1037,7 +1037,7 @@ export class nrrd_tools {
 
         // get the slice that need to be updated on displayCanvas
         let needToUpdateSlice = this.updateCurrentContrastSlice();
-        
+
         needToUpdateSlice.repaint.call(needToUpdateSlice);
         this.nrrd_states.currentIndex = newIndex;
         this.drawDragSlice(needToUpdateSlice.canvas);
@@ -1716,6 +1716,21 @@ export class nrrd_tools {
 
     modeFolder.open();
     const actionsFolder = modeFolder.addFolder("Default Actions");
+
+    actionsFolder
+      .add(this.gui_states, "label", ["default", "label1", "label2"])
+      .onChange((val) => {
+        if (val === "default") {
+          this.gui_states.fillColor = "#3fac58";
+          this.gui_states.brushColor = "#3fac58";
+        } else if (val === "label1") {
+          this.gui_states.fillColor = "#f70f6e";
+          this.gui_states.brushColor = "#f70f6e";
+        } else if (val === "label2") {
+          this.gui_states.fillColor = "#f7600f";
+          this.gui_states.brushColor = "#f7600f";
+        }
+      });
 
     actionsFolder
       .add(this.gui_states, "cursor", ["crosshair", "pencil", "dot"])
