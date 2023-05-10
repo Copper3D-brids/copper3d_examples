@@ -22,6 +22,8 @@ import { configKiwriousHeart } from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
 import { nrrd_tools } from "./Utils/nrrd_tool";
 
+import { Copper3dTrackballControls } from "./Controls/Copper3dTrackballControls";
+
 import {
   nrrdMeshesType,
   nrrdSliceType,
@@ -36,10 +38,10 @@ import {
 
 import "./css/style.css";
 
-export const REVISION = "v1.14.3";
+export const REVISION = "v1.14.10";
 
 console.log(
-  "%cCopper3D Visualisation %cBeta:v1.14.3",
+  "%cCopper3D Visualisation %cBeta:v1.14.10",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );
@@ -62,6 +64,7 @@ export {
   kiwrious,
   nrrd_tools,
   loading,
+  Copper3dTrackballControls,
 };
 
 export type {
