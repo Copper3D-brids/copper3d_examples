@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { GUI } from "dat.gui";
 import { Controls, CameraViewPoint } from "../Controls/copperControls";
 import { createBackground, customMeshType } from "../lib/three-vignette";
-import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+// import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
@@ -17,7 +18,6 @@ import { copperNrrdLoader1, getWholeSlices } from "../Loader/copperNrrdLoader";
 import { isIOS } from "../Utils/utils";
 
 import commonScene from "./commonSceneMethod";
-
 
 const IS_IOS = isIOS();
 
@@ -37,7 +37,7 @@ export default class copperMScene extends commonScene {
   cameraPositionFlag = false;
   content: THREE.Group = new THREE.Group();
   isHalfed: boolean = false;
-  controls: TrackballControls | OrbitControls;
+  controls: Copper3dTrackballControls | OrbitControls;
 
   private color1: string = "#5454ad";
   private color2: string = "#18e5a7";
@@ -68,9 +68,9 @@ export default class copperMScene extends commonScene {
     this.vignette.mesh.renderOrder = -1;
 
     this.copperControl = new Controls(this.camera);
-    this.controls = new TrackballControls(this.camera, this.container);
+    this.controls = new Copper3dTrackballControls(this.camera, this.container);
     this.controls.rotateSpeed = 0.02;
-    this.controls.staticMoving = true
+    this.controls.staticMoving = true;
     // this.controls = new OrbitControls(this.camera, this.container);
     this.preRenderCallbackFunctions = {
       index: 0,
@@ -128,9 +128,12 @@ export default class copperMScene extends commonScene {
         this.controls = new OrbitControls(this.camera, this.container);
         break;
       default:
-        this.controls = new TrackballControls(this.camera, this.container);
+        this.controls = new Copper3dTrackballControls(
+          this.camera,
+          this.container
+        );
         this.controls.rotateSpeed = 0.01;
-        this.controls.staticMoving = true
+        this.controls.staticMoving = true;
         break;
     }
   }
@@ -189,22 +192,22 @@ export default class copperMScene extends commonScene {
     );
   }
 
-  pickSpecifiedModel(
-    content: THREE.Mesh | Array<THREE.Mesh>,
-    mousePosition: mouseMovePositionType
-  ) {
-    if (Array.isArray(content)) {
-      this.pickableObjects = content;
-    } else {
-      this.pickableObjects.push(content);
-    }
-    return isPickedModel(
-      this.camera as THREE.PerspectiveCamera,
-      this.container,
-      this.pickableObjects,
-      mousePosition
-    );
-  }
+  // pickSpecifiedModel(
+  //   content: THREE.Mesh | Array<THREE.Mesh>,
+  //   mousePosition: mouseMovePositionType
+  // ) {
+  //   if (Array.isArray(content)) {
+  //     this.pickableObjects = content;
+  //   } else {
+  //     this.pickableObjects.push(content);
+  //   }
+  //   return isPickedModel(
+  //     this.camera as THREE.PerspectiveCamera,
+  //     this.container,
+  //     this.pickableObjects,
+  //     mousePosition
+  //   );
+  // }
 
   setViewPoint(
     camera: THREE.PerspectiveCamera,
@@ -308,7 +311,7 @@ export default class copperMScene extends commonScene {
       nrrdSlices,
       this.scene,
       this.gui,
-      this.controls as TrackballControls
+      this.controls as Copper3dTrackballControls
     );
   }
 

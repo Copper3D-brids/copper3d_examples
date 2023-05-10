@@ -1,7 +1,7 @@
 import * as THREE from "three";
-// import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
+import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
 // import * as NRRD from "copper3d_plugin_nrrd";
-import { NRRDLoader } from "copper3d_plugin_nrrd";
+// import { NRRDLoader } from "copper3d_plugin_nrrd";
 
 import copperScene from "../Scene/copperScene";
 import { VolumeRenderShader1 } from "three/examples/jsm/shaders/VolumeShader";
@@ -9,7 +9,8 @@ import cm_gray from "../css/images/cm_gray.png";
 import cm_viridis from "../css/images/cm_viridis.png";
 import { GUI } from "dat.gui";
 import { nrrdMeshesType, nrrdSliceType, loadingBarType } from "../types/types";
-import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+// import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
 import { loading } from "../Utils/utils";
 
@@ -20,7 +21,8 @@ loader = new NRRDLoader();
 // loader.setSegmentationn(true);
 
 let cube: THREE.Mesh;
-let gui: GUI;
+let gui: GUI | undefined;
+let oldGuiDom: HTMLDivElement;
 
 let CircleGeometry = new THREE.RingGeometry(5, 6, 30);
 let CircleMaterial = new THREE.MeshBasicMaterial({
@@ -158,6 +160,7 @@ export function copperNrrdLoader(
       } else {
         callback && callback(volume, nrrdMeshes, nrrdSlices);
       }
+      gui = undefined;
     },
     function (xhr: ProgressEvent<EventTarget>) {
       loadingContainer.style.display = "flex";
@@ -315,7 +318,7 @@ export function getWholeSlices(
   nrrdSlices: nrrdSliceType,
   scene: THREE.Scene,
   gui: GUI,
-  controls: TrackballControls
+  controls: Copper3dTrackballControls
 ) {
   let i = 0;
   let timeX = nrrdSlices.x.volume.RASDimensions[0];
@@ -429,11 +432,14 @@ export function addBoxHelper(
 function configGui(opts?: optsType) {
   if (opts && opts.openGui) {
     if (opts.container) {
+      if (oldGuiDom) {
+        opts.container.removeChild(oldGuiDom);
+      }
       gui = new GUI({
         width: 260,
         autoPlace: false,
       });
-
+      oldGuiDom = gui.domElement as HTMLDivElement;
       opts.container.appendChild(gui.domElement);
     } else {
       gui = new GUI();
