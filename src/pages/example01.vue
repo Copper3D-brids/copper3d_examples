@@ -155,6 +155,9 @@ function loadModel(url: string, name: string) {
       appRenderer.setCurrentScene(scene);
 
       scene.controls.staticMoving = true;
+      scene.controls.panSpeed = 3;
+      scene.controls.rotateSpeed = 3;
+      console.log(scene.controls);
 
       if (name === "test") {
         scene.loadGltf(url, (content) => {
