@@ -16,6 +16,7 @@
       example13_Segmentation_Tool_Base_CopperScene
     </button>
     <button @click="goRouter(14)">example14_Drawer</button>
+    <button @click="goRouter(15)">example15 texture3d</button>
   </div>
 </template>
 

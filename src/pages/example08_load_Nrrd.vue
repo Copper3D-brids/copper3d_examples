@@ -44,7 +44,7 @@ onMounted(() => {
   appRenderer.sceneInfos[0].container.appendChild(loadBar1.loadingContainer);
 
   loadNrrd(
-    "/copper3d_examples/nrrd/breast-224.nrrd",
+    "/copper3d_examples/nrrd/stent.nrrd",
     "/copper3d_examples/nrrd/mesh_spacing.obj",
     "nrrd0",
     appRenderer.sceneInfos[0],
@@ -79,7 +79,6 @@ function loadNrrd(
     gui?: GUI
   ) => {
     (gui as GUI).closed = true;
-    console.log(volume);
 
     const geometry = new THREE.SphereGeometry(5, 32, 16);
     const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
@@ -137,7 +136,55 @@ function loadNrrd(
     appRenderer.sceneInfos[0].scene.add(nrrdMesh.x, nrrdMesh.y, nrrdMesh.z);
     // appRenderer.sceneInfos[0].scene.add(nrrdMesh.y);
     // appRenderer.sceneInfos[0].scene.add(nrrdMesh.z);
-    appRenderer.sceneInfos[1].loadViewUrl("/copper3d_examples/nrrd_view.json");
+    console.log(volume);
+    const uint8Array = Uint8Array.from(volume.data, (value) => value & 0xff);
+    console.log(uint8Array);
+
+    Copper.createTexture2D_NRRD(
+      uint8Array,
+      volume.dimensions[0],
+      volume.dimensions[1],
+      volume.dimensions[2],
+      (mesh) => {
+        let depthStep = 0.3;
+        appRenderer.sceneInfos[1].scene.add(mesh);
+        const render_texture2d = () => {
+          if (mesh) {
+            let value = (mesh.material as any).uniforms["depth"].value;
+
+            // value += depthStep;
+            // if (value > 224.0 || value < 0.0) {
+            //   if (value > 1.0) value = 224.0 * 2.0 - value;
+            //   if (value < 0.0) value = -value;
+
+            //   depthStep = -depthStep;
+            // }
+
+            // value += depthStep;
+            // if (value > volume.dimensions[2]) {
+            //   value = 0;
+            // }
+
+            // (mesh.material as any).uniforms["depth"].value = value;
+          }
+          let value = (mesh.material as any).uniforms["depth"].value;
+          console.log(gui);
+
+          gui
+            ?.add({ depth: value }, "depth", 0, volume.dimensions[2], 1)
+            .onChange((value) => {
+              (mesh.material as any).uniforms["depth"].value = value;
+            });
+        };
+        render_texture2d();
+        // appRenderer.sceneInfos[1].addPreRenderCallbackFunction(
+        //   render_texture2d
+        // );
+      }
+    );
+    appRenderer.sceneInfos[1].loadViewUrl(
+      "/copper3d_examples/nrrd_view_t2.json"
+    );
     // appRenderer.sceneInfos[0].setCameraPosition({ x: 300, z: 0 });
 
     // raycaster

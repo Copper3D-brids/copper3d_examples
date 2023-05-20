@@ -1,5 +1,6 @@
 <template>
   <!-- <div id="bg" ref="base_container" @click="getPosition"> -->
+  <!-- <button @click="testBack">click</button> -->
   <div id="bg" ref="base_container">
     <div ref="c_gui_ref" id="gui"></div>
     <div ref="nrrd_c_ref" class="nrrd_c"></div>
@@ -99,6 +100,25 @@ onMounted(() => {
   //   "/copper3d_examples/nrrd/segmentation/ax dyn 4th pass.nrrd",
   // ];
 
+  const socket = new WebSocket("ws://127.0.0.1:8000/ws");
+  socket.onopen = function (e) {
+    console.log("[open] Connection established");
+    console.log("Sending to server");
+    socket.send("My name is John");
+  };
+
+  // Listen for incoming messages from the server
+  socket.onmessage = function (event) {
+    console.log(event.data);
+
+    // const jsonData = JSON.parse(event.data);
+    // // do something with the JSON object
+    // console.log("received: data");
+
+    // console.log(jsonData.name);
+    // console.log(jsonData.age);
+  };
+
   loadModel("nrrd_tools");
   document.addEventListener("keydown", (e) => {
     if (e.code === "KeyF") {
@@ -112,6 +132,10 @@ onMounted(() => {
   selectedContrastFolder = gui.addFolder("select display contrast");
   appRenderer.animate();
 });
+
+const testBack = () => {
+  axios.get("http://127.0.0.1:8000/convert");
+};
 
 const readyToLoad = (urlsArray: Array<string>) => {
   fileNum.value = urlsArray.length;

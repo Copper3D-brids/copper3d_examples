@@ -111,9 +111,10 @@ onMounted(() => {
   loadBar = Copper.loading();
   appRenderer = new Copper.copperRenderer(bg, {
     guiOpen: true,
-    camera: true,
-    performance: true,
-    light: true,
+    cameraGui: true,
+    performanceGui: true,
+    lightGui: true,
+    controls: "copper3d",
   });
   // appRenderer.gui.closed = true;
   appRenderer.closeGui();
@@ -132,6 +133,8 @@ onMounted(() => {
   appRenderer.animate();
 });
 function loadModel(url: string, name: string) {
+  console.log("loadModel");
+
   if (scene) {
     sharePosition(scene);
   }
@@ -154,7 +157,10 @@ function loadModel(url: string, name: string) {
     if (scene) {
       appRenderer.setCurrentScene(scene);
 
-      scene.controls.staticMoving = true;
+      (scene.controls as Copper.Copper3dTrackballControls).staticMoving = true;
+      scene.controls.panSpeed = 3;
+      scene.controls.rotateSpeed = 3;
+      console.log(scene.controls);
 
       if (name === "test") {
         scene.loadGltf(url, (content) => {
