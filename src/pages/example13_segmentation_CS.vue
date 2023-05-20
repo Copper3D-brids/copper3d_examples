@@ -1,6 +1,6 @@
 <template>
   <!-- <div id="bg" ref="base_container" @click="getPosition"> -->
-  <button @click="testBack">click</button>
+  <!-- <button @click="testBack">click</button> -->
   <div id="bg" ref="base_container">
     <div ref="c_gui_ref" id="gui"></div>
     <div ref="nrrd_c_ref" class="nrrd_c"></div>

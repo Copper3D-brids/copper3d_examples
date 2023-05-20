@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { NRRDLoader } from "three/examples/jsm/loaders/NRRDLoader";
-// import * as NRRD from "copper3d_plugin_nrrd";
 // import { NRRDLoader } from "copper3d_plugin_nrrd";
 
 import copperScene from "../Scene/copperScene";
@@ -13,6 +12,7 @@ import { nrrdMeshesType, nrrdSliceType, loadingBarType } from "../types/types";
 import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry";
 import { loading } from "../Utils/utils";
+import { resize3dnrrd } from "../Utils/convet";
 
 let loader: any;
 
@@ -174,26 +174,23 @@ export function copperNrrdLoader(
   );
 }
 
-export function copperNrrdLoader1(
+export function copperNrrdTexture3dLoader(
   url: string,
   scene: THREE.Scene,
   container: HTMLDivElement,
   callback?: (volume: any, gui?: GUI) => void
 ) {
+  // for case 12
   const volconfig = {
-    clim1: 0,
-    clim2: 1,
-    renderStyle: "iso",
-    isothreshold: -0.15,
+    clim1_g: 5,
+    clim2_g: 58,
+    clim1: -0.005,
+    clim2: 0.058,
+    renderStyle: "mip",
+    isothreshold_g: 4,
+    isothreshold: 0.004,
     colormap: "viridis",
   };
-  // const volconfig = {
-  //   clim1: 10,
-  //   clim2: 10,
-  //   renderStyle: "iso",
-  //   isothreshold: -0.15,
-  //   colormap: "viridis",
-  // };
   let { loadingContainer, progress } = loading();
   container.appendChild(loadingContainer);
   let cmtextures: { [key: string]: any };
@@ -204,6 +201,8 @@ export function copperNrrdLoader1(
   let loader: any;
 
   loader = new NRRDLoader();
+
+  loader.setSegmentation(true);
 
   loader.load(
     url,
@@ -217,16 +216,28 @@ export function copperNrrdLoader1(
       let data = is_Int16Array
         ? int16ToFloat32(volume.data, 0, volume.data.length)
         : volume.data;
+      const dimTarget = [
+        Math.floor(volume.xLength * volume.spacing[0]),
+        Math.floor(volume.yLength * volume.spacing[1]),
+        Math.ceil(volume.zLength * volume.spacing[2]),
+      ];
+
+      const scalePixels = resize3dnrrd(data, volume.dimensions, dimTarget);
+
+      const width = dimTarget[0];
+      const height = dimTarget[1];
+      const depth = dimTarget[2];
 
       const texture = new THREE.Data3DTexture(
-        data as any,
-        volume.xLength,
-        volume.yLength,
-        volume.zLength
+        scalePixels as any,
+        width,
+        height,
+        depth
       );
 
       texture.format = THREE.RedFormat;
       texture.type = THREE.FloatType;
+
       texture.minFilter = texture.magFilter = THREE.LinearFilter;
       texture.unpackAlignment = 1;
       texture.needsUpdate = true;
@@ -243,11 +254,7 @@ export function copperNrrdLoader1(
       const uniforms = THREE.UniformsUtils.clone(shader.uniforms);
 
       uniforms["u_data"].value = texture;
-      uniforms["u_size"].value.set(
-        volume.xLength,
-        volume.yLength,
-        volume.zLength
-      );
+      uniforms["u_size"].value.set(width, height, depth);
 
       uniforms["u_clim"].value.set(volconfig.clim1, volconfig.clim2);
       uniforms["u_renderstyle"].value = volconfig.renderStyle === "mip" ? 0 : 1; // mip 0, iso 1
@@ -261,37 +268,48 @@ export function copperNrrdLoader1(
         side: THREE.BackSide, // The volume shader uses the backface as its "reference point"
       });
 
-      // Mesh
-      const geometry = new THREE.BoxGeometry(
-        volume.xLength,
-        volume.yLength,
-        volume.zLength
-      );
-      geometry.translate(
-        volume.xLength / 2 - 0.5,
-        volume.yLength / 2 - 0.5,
-        volume.zLength / 2 - 0.5
-      );
+      const geometry = new THREE.BoxGeometry(width, height, depth);
+      geometry.translate(width / 2 - 0.5, height / 2 - 0.5, depth / 2 - 0.5);
       mesh = new THREE.Mesh(geometry, material);
 
       const boxHelper = new THREE.BoxHelper(mesh);
-      scene.add(boxHelper);
+      // scene.add(boxHelper);
       boxHelper.applyMatrix4((volume as any).matrix);
+
+      const box = new THREE.Box3().setFromObject(mesh);
+      const size = box.getSize(new THREE.Vector3()).length();
+      const center = box.getCenter(new THREE.Vector3());
+      mesh.position.x += mesh.position.x - center.x;
+      mesh.position.y += mesh.position.y - center.y;
+      mesh.position.z += mesh.position.z - center.z;
+
+      const boundingBox = new THREE.Box3().setFromObject(mesh);
+
+      // 获取边界框的尺寸
+      const size_ = new THREE.Vector3();
+      boundingBox.getSize(size_);
 
       scene.add(mesh);
 
       const gui = new GUI();
-      gui.add(volconfig, "clim1", -1, 1, 0.01).onChange(updateUniforms);
-      gui.add(volconfig, "clim2", -1, 1, 0.01).onChange(updateUniforms);
-      // gui.add(volconfig, "clim1", -50, 400, 1).onChange(updateUniforms);
-      // gui.add(volconfig, "clim2", -50, 400, 1).onChange(updateUniforms);
+      gui.add(volconfig, "clim1_g", -500, 500, 1).onChange((value) => {
+        volconfig.clim1 = value / 1000;
+        updateUniforms();
+      });
+      gui.add(volconfig, "clim2_g", -500, 500, 1).onChange((value) => {
+        volconfig.clim2 = value / 1000;
+        updateUniforms();
+      });
       gui
         .add(volconfig, "colormap", { gray: "gray", viridis: "viridis" })
         .onChange(updateUniforms);
       gui
         .add(volconfig, "renderStyle", { mip: "mip", iso: "iso" })
         .onChange(updateUniforms);
-      gui.add(volconfig, "isothreshold", -1, 1, 0.01).onChange(updateUniforms);
+      gui.add(volconfig, "isothreshold_g", -1000, 1000, 1).onChange((value) => {
+        volconfig.isothreshold = value / 1000;
+        updateUniforms();
+      });
 
       function updateUniforms() {
         material.uniforms["u_clim"].value.set(volconfig.clim1, volconfig.clim2);
@@ -358,7 +376,6 @@ export function getWholeSlices(
   //     nrrdSlices.z.index = i;
   //     nrrdSlices.z.repaint(nrrdSlices.z);
   //     nrrdSlices.z.mesh.position.set(0, 0, 0.5);
-  //     console.log(nrrdSlices.z.mesh);
   //   }, 100);
   // }
   let up = true;
@@ -407,7 +424,6 @@ export function getWholeSlices(
 
       // if (slicesX[index]) {
       //   controls.enabled = false;
-      //   console.log(slicesX[index]);
       //   slicesX[index].visible = false;
       //   // ? (slicesX[index].visible = false)
       //   // : (slicesX[index].visible = true);
@@ -433,7 +449,8 @@ function configGui(opts?: optsType) {
   if (opts && opts.openGui) {
     if (opts.container) {
       if (oldGuiDom) {
-        opts.container.removeChild(oldGuiDom);
+        oldGuiDom.remove();
+        // opts.container.removeChild(oldGuiDom);
       }
       gui = new GUI({
         width: 260,

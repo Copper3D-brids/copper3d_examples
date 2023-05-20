@@ -38,7 +38,7 @@ onMounted(() => {
 
   // loadModel("/test.glb", "test", appRenderer.sceneInfos[0]);
   loadNrrd(
-    "/copper3d_examples/nrrd/breast-224.nrrd",
+    "/copper3d_examples/nrrd/segmentation/ax dyn 1st pass.nrrd",
     "nrrd0",
     appRenderer.sceneInfos[0],
     c_gui
@@ -52,8 +52,9 @@ onMounted(() => {
     appRenderer.sceneInfos[1],
     c_gui_2
   );
+  // "/copper3d_examples/nrrd/breast-224.nrrd",
   loadNrrd1(
-    "/copper3d_examples/nrrd/breast-224.nrrd",
+    "/copper3d_examples/nrrd/segmentation/ax dyn 1st pass.nrrd",
     "nrrd",
     appRenderer.sceneInfos[2],
     c_gui_3
@@ -155,8 +156,8 @@ function loadNrrd1(
   };
   if (sceneIn) {
     // sceneIn?.loadNrrd(url, a, opts);
-    sceneIn?.loadNrrd1(url, a);
-    // sceneIn.loadViewUrl("/copper3d_examples/nrrd_view.json");
+    sceneIn?.loadNrrdTexture3d(url, a);
+    // sceneIn.loadViewUrl("/copper3d_examples/nrrd_view_texture3d.json");
   }
   sceneIn.updateBackground("#18e5a7", "#000");
   Copper.setHDRFilePath("venice_sunset_1k.hdr");

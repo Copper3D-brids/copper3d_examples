@@ -18,6 +18,8 @@ import copperSceneOnDemond from "./Scene/copperSceneOnDemond";
 import copperMSceneRenderer from "./Renderer/copperMSceneRenderer";
 import copperMScene from "./Scene/copperMScene";
 
+import { createTexture2D_NRRD } from "./Utils/texture2d";
+
 import { configKiwriousHeart } from "./Utils/kiwrious/configKiwrious";
 import kiwrious from "./Utils/kiwrious/configKiwrious";
 import { nrrd_tools } from "./Utils/nrrd_tool";
@@ -38,10 +40,10 @@ import {
 
 import "./css/style.css";
 
-export const REVISION = "v1.14.10";
+export const REVISION = "v1.15.8";
 
 console.log(
-  "%cCopper3D Visualisation %cBeta:v1.14.10",
+  "%cCopper3D Visualisation %cBeta:v1.15.8",
   "padding: 3px;color:white; background:#023047",
   "padding: 3px;color:white; background:#f50a25"
 );
@@ -65,6 +67,7 @@ export {
   nrrd_tools,
   loading,
   Copper3dTrackballControls,
+  createTexture2D_NRRD,
 };
 
 export type {

@@ -2,9 +2,10 @@ import * as THREE from "three";
 import { GUI } from "dat.gui";
 import { Controls, CameraViewPoint } from "../Controls/copperControls";
 import { createBackground, customMeshType } from "../lib/three-vignette";
-// import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
+import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { copperGltfLoader } from "../Loader/copperGltfLoader";
 import { objLoader } from "../Loader/copperOBJLoader";
@@ -14,7 +15,10 @@ import {
   positionType,
   nrrdSliceType,
 } from "../types/types";
-import { copperNrrdLoader1, getWholeSlices } from "../Loader/copperNrrdLoader";
+import {
+  copperNrrdTexture3dLoader,
+  getWholeSlices,
+} from "../Loader/copperNrrdLoader";
 import { isIOS } from "../Utils/utils";
 
 import commonScene from "./commonSceneMethod";
@@ -37,12 +41,10 @@ export default class copperMScene extends commonScene {
   cameraPositionFlag = false;
   content: THREE.Group = new THREE.Group();
   isHalfed: boolean = false;
-  controls: Copper3dTrackballControls | OrbitControls;
 
   private color1: string = "#5454ad";
   private color2: string = "#18e5a7";
   private lights: any[] = [];
-  private renderNrrdVolume: boolean = false;
   private guiContainer: HTMLDivElement = document.createElement("div");
 
   constructor(container: HTMLDivElement, renderer: THREE.WebGLRenderer) {
@@ -70,7 +72,7 @@ export default class copperMScene extends commonScene {
     this.copperControl = new Controls(this.camera);
     this.controls = new Copper3dTrackballControls(this.camera, this.container);
     this.controls.rotateSpeed = 0.02;
-    this.controls.staticMoving = true;
+    (this.controls as Copper3dTrackballControls).staticMoving = true;
     // this.controls = new OrbitControls(this.camera, this.container);
     this.preRenderCallbackFunctions = {
       index: 0,
@@ -101,14 +103,14 @@ export default class copperMScene extends commonScene {
     this.guiContainer.addEventListener(
       "pointerover",
       throttle(() => {
-        this.controls.enabled = false;
+        (this.controls as Copper3dTrackballControls).enabled = false;
       }, 100),
       false
     );
     this.guiContainer.addEventListener(
       "pointerleave",
       () => {
-        this.controls.enabled = true;
+        (this.controls as Copper3dTrackballControls).enabled = true;
       },
       false
     );
@@ -148,7 +150,7 @@ export default class copperMScene extends commonScene {
         const size = box.getSize(new THREE.Vector3()).length();
         const center = box.getCenter(new THREE.Vector3());
 
-        this.controls.maxDistance = size * 10;
+        (this.controls as Copper3dTrackballControls).maxDistance = size * 10;
         gltf.scene.position.x += gltf.scene.position.x - center.x;
         gltf.scene.position.y += gltf.scene.position.y - center.y;
         gltf.scene.position.z += gltf.scene.position.z - center.z;
@@ -231,34 +233,6 @@ export default class copperMScene extends commonScene {
     return viewPoint;
   }
 
-  loadNrrd1(url: string, callback?: (volume: any, gui?: GUI) => void) {
-    // const h = 512; // frustum height
-    const h = 1024;
-    const aspect = window.innerWidth / window.innerHeight;
-
-    this.camera = new THREE.OrthographicCamera(
-      (-h * aspect) / 2,
-      (h * aspect) / 2,
-      h / 2,
-      -h / 2,
-      1,
-      1000
-    );
-
-    this.camera.position.set(0, 0, 128);
-
-    // this.camera.position.set(-64, -64, 128);
-    this.camera.up.set(0, 0, 1);
-    this.controls.dispose();
-    this.controls = new OrbitControls(this.camera, this.container);
-    this.controls.target.set(64, 64, 128);
-    this.controls.minZoom = 0.5;
-    this.controls.maxZoom = 4;
-    this.controls.enablePan = false;
-    this.renderNrrdVolume = true;
-    copperNrrdLoader1(url, this.scene, this.container, callback);
-  }
-
   loadOBJ(url: string, callback?: (mesh: THREE.Group) => void) {
     objLoader.load(
       url,
@@ -277,7 +251,7 @@ export default class copperMScene extends commonScene {
         const size = box.getSize(new THREE.Vector3()).length();
         const center = box.getCenter(new THREE.Vector3());
 
-        this.controls.maxDistance = size * 10;
+        (this.controls as Copper3dTrackballControls).maxDistance = size * 10;
         obj.position.x += obj.position.x - center.x;
         obj.position.y += obj.position.y - center.y;
         obj.position.z += obj.position.z - center.z;
@@ -384,7 +358,7 @@ export default class copperMScene extends commonScene {
   }
 
   resetView() {
-    this.controls.reset();
+    (this.controls as Copper3dTrackballControls).reset();
     this.updateCamera(this.viewPoint);
   }
 
@@ -409,11 +383,11 @@ export default class copperMScene extends commonScene {
       this.subRender.setSize(this.subDiv.clientWidth, this.subDiv.clientHeight);
     }
 
-    this.controls.update();
+    (this.controls as Copper3dTrackballControls).update();
   };
 
   render() {
-    this.controls.update();
+    (this.controls as Copper3dTrackballControls).update();
     this.onWindowResize();
     // if (this.modelReady) {
     //   this.mixer && this.mixer.update(this.clock.getDelta() * this.playRate);
