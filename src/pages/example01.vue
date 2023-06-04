@@ -131,6 +131,7 @@ onMounted(() => {
   defaultScene.createDemoMesh();
 
   appRenderer.animate();
+  // appRenderer.fpsCap.fps = 30;
 });
 function loadModel(url: string, name: string) {
   console.log("loadModel");
@@ -240,8 +241,8 @@ function loadModel(url: string, name: string) {
       // scene.directionalLight.color = new THREE.Color(0x18ef06);
       scene.updateBackground("#5454ad", "#18e5a7");
     }
-    // Copper.setHDRFilePath("/copper3d_examples/venice_sunset_1k.hdr");
-    Copper.setHDRFilePath("/copper3d_examples/footprint_court_2k.hdr");
+    Copper.setHDRFilePath("/copper3d_examples/venice_sunset_1k.hdr");
+    // Copper.setHDRFilePath("/copper3d_examples/footprint_court_2k.hdr");
     // Copper.setHDRFilePath("/copper3d_examples/sandsloot_1k.hdr");
     appRenderer.updateEnvironment();
   } else {
