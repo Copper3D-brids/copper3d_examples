@@ -86,7 +86,6 @@ export class nrrd_tools {
   private Is_Shift_Pressed: boolean = false;
   private Is_Draw: boolean = false;
   private sensitiveArray: number[] = [];
-  private handleWheelMove: (e: WheelEvent) => void = () => {};
   start: () => void = () => {};
 
   private paintedImage: paintImageType | undefined;
@@ -127,8 +126,9 @@ export class nrrd_tools {
     isCursorSelect: false,
     cursorPageX: 0,
     cursorPageY: 0,
-    sphereOrigin: { x: 0, y: 0, z: 0 },
-    sphereRadius: 0,
+    // x: [cursorX, cursorY, sliceIndex]
+    sphereOrigin: { x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0] },
+    sphereRadius: 10,
     Mouse_Over_x: 0,
     Mouse_Over_y: 0,
     Mouse_Over: false,
@@ -236,6 +236,17 @@ export class nrrd_tools {
     handleOnDragMouseMove: (ev: MouseEvent) => {},
   };
 
+  private drawingPrameters = {
+    handleOnDrawingMouseDown: (ev: MouseEvent) => {},
+    handleOnDrawingMouseMove: (ev: MouseEvent) => {},
+    handleOnPanMouseMove: (ev: MouseEvent) => {},
+    handleOnDrawingMouseUp: (ev: MouseEvent) => {},
+    handleOnDrawingMouseLeave: (ev: MouseEvent) => {},
+    handleOnDrawingBrushCricleMove: (ev: MouseEvent) => {},
+    handleZoomWheel: (e: WheelEvent) => {},
+    handleSphereWheel: (e: WheelEvent) => {},
+  };
+
   constructor(container: HTMLDivElement) {
     this.container = container;
     this.displayCtx = this.displayCanvas.getContext(
@@ -279,7 +290,7 @@ export class nrrd_tools {
       this.sensitiveArray.push((i + 1) / 20);
     }
     this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
-      if (ev.key === "Shift") {
+      if (ev.key === "Shift" && !this.gui_states.sphere) {
         this.Is_Shift_Pressed = true;
         this.nrrd_states.enableCursorChoose = false;
       }
@@ -1156,7 +1167,7 @@ export class nrrd_tools {
     this.container.removeEventListener(
       "pointerup",
       this.dragPrameters.handleOnDragMouseUp,
-      false
+      true
     );
     this.setIsDrawFalse(1000);
   };
@@ -1172,7 +1183,10 @@ export class nrrd_tools {
 
     this.dragPrameters.handleOnDragMouseDown = (ev: MouseEvent) => {
       // before start drag event, remove wheel event.
-      this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
+      this.drawingCanvas.removeEventListener(
+        "wheel",
+        this.drawingPrameters.handleZoomWheel
+      );
       if (ev.button === 0) {
         // this.setSyncsliceNum();
         this.dragPrameters.y = ev.offsetY / this.dragPrameters.h;
@@ -1208,7 +1222,10 @@ export class nrrd_tools {
     }, this.dragPrameters.sensivity * 200);
     this.dragPrameters.handleOnDragMouseUp = (ev: MouseEvent) => {
       // after drag, add the wheel event
-      this.drawingCanvas.addEventListener("wheel", this.handleWheelMove);
+      this.drawingCanvas.addEventListener(
+        "wheel",
+        this.drawingPrameters.handleZoomWheel
+      );
       this.setSyncsliceNum();
       this.container.removeEventListener(
         "pointermove",
@@ -1225,7 +1242,7 @@ export class nrrd_tools {
       }
     });
     this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
-      if (ev.key === "Shift") {
+      if (ev.key === "Shift" && !this.gui_states.sphere) {
         this.configDragMode();
       }
     });
@@ -1443,6 +1460,7 @@ export class nrrd_tools {
     // draw lines starts position
     let Is_Painting = false;
     let lines: Array<mouseMovePositionType> = [];
+    const clearArc = this.useEraser();
 
     this.updateOriginAndChangedWH();
 
@@ -1469,13 +1487,22 @@ export class nrrd_tools {
     );
 
     // let a global variable to store the wheel move event
-    this.handleWheelMove = this.configMouseWheel(this.sceneIn?.controls);
+    this.drawingPrameters.handleZoomWheel = this.configMouseZoomWheel(
+      this.sceneIn?.controls
+    );
     // init to add it
-    this.drawingCanvas.addEventListener("wheel", this.handleWheelMove, {
-      passive: false,
-    });
+    this.drawingCanvas.addEventListener(
+      "wheel",
+      this.drawingPrameters.handleZoomWheel,
+      {
+        passive: false,
+      }
+    );
+    // sphere Wheel
+    this.drawingPrameters.handleSphereWheel = this.configMouseSphereWheel();
 
-    const handleDragPaintPanel = (e: MouseEvent) => {
+    // pan move
+    this.drawingPrameters.handleOnPanMouseMove = (e: MouseEvent) => {
       this.drawingCanvas.style.cursor = "grabbing";
       this.nrrd_states.previousPanelL = e.clientX - panelMoveInnerX;
       this.nrrd_states.previousPanelT = e.clientY - panelMoveInnerY;
@@ -1484,8 +1511,9 @@ export class nrrd_tools {
       this.displayCanvas.style.top = this.drawingCanvas.style.top =
         this.nrrd_states.previousPanelT + "px";
     };
-    // throttle(, 80);
-    const handleDrawingMouseMove = (e: MouseEvent) => {
+
+    // brush circle move
+    this.drawingPrameters.handleOnDrawingBrushCricleMove = (e: MouseEvent) => {
       e.preventDefault();
       this.nrrd_states.Mouse_Over_x = e.offsetX;
       this.nrrd_states.Mouse_Over_y = e.offsetY;
@@ -1495,134 +1523,21 @@ export class nrrd_tools {
       }
       if (e.type === "mouseout") {
         this.nrrd_states.Mouse_Over = false;
-
         this.drawingCanvas.removeEventListener(
           "mousemove",
-          handleDrawingMouseMove
+          this.drawingPrameters.handleOnDrawingBrushCricleMove
         );
       } else if (e.type === "mouseover") {
         this.nrrd_states.Mouse_Over = true;
         this.drawingCanvas.addEventListener(
           "mousemove",
-          handleDrawingMouseMove
+          this.drawingPrameters.handleOnDrawingBrushCricleMove
         );
       }
     };
 
-    // add canvas event listeners
-    this.drawingCanvas.addEventListener("mouseover", handleDrawingMouseMove);
-    this.drawingCanvas.addEventListener("mouseout", handleDrawingMouseMove);
-
-    // disable browser right click menu
-    this.drawingCanvas.addEventListener(
-      "pointerdown",
-      (e: MouseEvent) => {
-        if (leftclicked || rightclicked) {
-          this.drawingCanvas.removeEventListener(
-            "pointerup",
-            handleDrawingMouseUp
-          );
-          this.drawingLayerMasterCtx.closePath();
-          return;
-        }
-
-        // when switch slice, clear previousDrawingImage
-        // todo
-        if (currentSliceIndex !== this.mainPreSlice.index) {
-          this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
-          currentSliceIndex = this.mainPreSlice.index;
-        }
-
-        // remove it when mouse click down
-        this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
-
-        if (e.button === 0) {
-          if (this.Is_Shift_Pressed) {
-            leftclicked = true;
-            lines = [];
-            Is_Painting = true;
-            this.Is_Draw = true;
-
-            if (this.gui_states.Eraser) {
-              // this.drawingCanvas.style.cursor =
-              //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_48.png) 48 48, crosshair";
-              this.eraserUrls.length > 0
-                ? (this.drawingCanvas.style.cursor = switchEraserSize(
-                    this.gui_states.brushAndEraserSize,
-                    this.eraserUrls
-                  ))
-                : (this.drawingCanvas.style.cursor = switchEraserSize(
-                    this.gui_states.brushAndEraserSize
-                  ));
-            } else {
-              this.drawingCanvas.style.cursor =
-                this.nrrd_states.defaultPaintCursor;
-            }
-
-            this.nrrd_states.drawStartPos.set(e.offsetX, e.offsetY);
-            // this.drawingLayerMasterCtx.beginPath();
-            this.drawingCanvas.addEventListener(
-              "pointerup",
-              handleDrawingMouseUp
-            );
-            this.drawingCanvas.addEventListener(
-              "pointermove",
-              handleOnPainterMove
-            );
-          } else if (this.nrrd_states.enableCursorChoose) {
-            this.nrrd_states.cursorPageX =
-              e.offsetX / this.nrrd_states.sizeFoctor;
-            this.nrrd_states.cursorPageY =
-              e.offsetY / this.nrrd_states.sizeFoctor;
-            this.nrrd_states.isCursorSelect = true;
-            switch (this.axis) {
-              case "x":
-                this.cursorPage.x.updated = true;
-                this.cursorPage.y.updated = false;
-                this.cursorPage.z.updated = false;
-                break;
-              case "y":
-                this.cursorPage.x.updated = false;
-                this.cursorPage.y.updated = true;
-                this.cursorPage.z.updated = false;
-                break;
-              case "z":
-                this.cursorPage.x.updated = false;
-                this.cursorPage.y.updated = false;
-                this.cursorPage.z.updated = true;
-                break;
-            }
-          }
-        } else if (e.button === 2) {
-          rightclicked = true;
-
-          // let offsetX = parseInt(this.drawingCanvas.style.left);
-          // let offsetY = parseInt(this.drawingCanvas.style.top);
-          let offsetX = this.drawingCanvas.offsetLeft;
-          let offsetY = this.drawingCanvas.offsetTop;
-
-          panelMoveInnerX = e.clientX - offsetX;
-          panelMoveInnerY = e.clientY - offsetY;
-
-          this.drawingCanvas.style.cursor = "grab";
-          this.drawingCanvas.addEventListener(
-            "pointerup",
-            handleDrawingMouseUp
-          );
-          this.drawingCanvas.addEventListener(
-            "pointermove",
-            handleDragPaintPanel
-          );
-        } else {
-          return;
-        }
-      },
-      true
-    );
-
-    const clearArc = this.useEraser();
-
-    const handleOnPainterMove = (e: MouseEvent) => {
+    // drawing move
+    this.drawingPrameters.handleOnDrawingMouseMove = (e: MouseEvent) => {
       this.Is_Draw = true;
       if (Is_Painting) {
         if (this.gui_states.Eraser) {
@@ -1635,6 +1550,146 @@ export class nrrd_tools {
         }
       }
     };
+    this.drawingPrameters.handleOnDrawingMouseDown = (e: MouseEvent) => {
+      if (leftclicked || rightclicked) {
+        this.drawingCanvas.removeEventListener(
+          "pointerup",
+          this.drawingPrameters.handleOnDrawingMouseUp
+        );
+        this.drawingLayerMasterCtx.closePath();
+        return;
+      }
+
+      // when switch slice, clear previousDrawingImage
+      // todo
+      if (currentSliceIndex !== this.mainPreSlice.index) {
+        this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
+        currentSliceIndex = this.mainPreSlice.index;
+      }
+
+      // remove it when mouse click down
+      this.drawingCanvas.removeEventListener(
+        "wheel",
+        this.drawingPrameters.handleZoomWheel
+      );
+
+      if (e.button === 0) {
+        if (this.Is_Shift_Pressed) {
+          leftclicked = true;
+          lines = [];
+          Is_Painting = true;
+          this.Is_Draw = true;
+
+          if (this.gui_states.Eraser) {
+            // this.drawingCanvas.style.cursor =
+            //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_48.png) 48 48, crosshair";
+            this.eraserUrls.length > 0
+              ? (this.drawingCanvas.style.cursor = switchEraserSize(
+                  this.gui_states.brushAndEraserSize,
+                  this.eraserUrls
+                ))
+              : (this.drawingCanvas.style.cursor = switchEraserSize(
+                  this.gui_states.brushAndEraserSize
+                ));
+          } else {
+            this.drawingCanvas.style.cursor =
+              this.nrrd_states.defaultPaintCursor;
+          }
+
+          this.nrrd_states.drawStartPos.set(e.offsetX, e.offsetY);
+          // this.drawingLayerMasterCtx.beginPath();
+          this.drawingCanvas.addEventListener(
+            "pointerup",
+            this.drawingPrameters.handleOnDrawingMouseUp
+          );
+          this.drawingCanvas.addEventListener(
+            "pointermove",
+            this.drawingPrameters.handleOnDrawingMouseMove
+          );
+        } else if (this.nrrd_states.enableCursorChoose) {
+          this.nrrd_states.cursorPageX =
+            e.offsetX / this.nrrd_states.sizeFoctor;
+          this.nrrd_states.cursorPageY =
+            e.offsetY / this.nrrd_states.sizeFoctor;
+          this.nrrd_states.isCursorSelect = true;
+          switch (this.axis) {
+            case "x":
+              this.cursorPage.x.updated = true;
+              this.cursorPage.y.updated = false;
+              this.cursorPage.z.updated = false;
+              break;
+            case "y":
+              this.cursorPage.x.updated = false;
+              this.cursorPage.y.updated = true;
+              this.cursorPage.z.updated = false;
+              break;
+            case "z":
+              this.cursorPage.x.updated = false;
+              this.cursorPage.y.updated = false;
+              this.cursorPage.z.updated = true;
+              break;
+          }
+        } else if (this.gui_states.sphere) {
+          console.log("sphere down");
+          let { ctx, canvas } = this.setCurrentLayer();
+          let mouseX = e.offsetX;
+          let mouseY = e.offsetY;
+
+          // draw circle
+          this.drawSphere(
+            mouseX,
+            mouseY,
+            this.nrrd_states.sphereRadius,
+            ctx,
+            canvas
+          );
+          this.drawingLayerMasterCtx.drawImage(
+            canvas,
+            0,
+            0,
+            this.nrrd_states.changedWidth,
+            this.nrrd_states.changedHeight
+          );
+          this.drawingCanvas.addEventListener(
+            "wheel",
+            this.drawingPrameters.handleSphereWheel,
+            true
+          );
+          this.drawingCanvas.addEventListener(
+            "pointerup",
+            this.drawingPrameters.handleOnDrawingMouseUp
+          );
+        }
+      } else if (e.button === 2) {
+        rightclicked = true;
+
+        // let offsetX = parseInt(this.drawingCanvas.style.left);
+        // let offsetY = parseInt(this.drawingCanvas.style.top);
+        let offsetX = this.drawingCanvas.offsetLeft;
+        let offsetY = this.drawingCanvas.offsetTop;
+
+        panelMoveInnerX = e.clientX - offsetX;
+        panelMoveInnerY = e.clientY - offsetY;
+
+        this.drawingCanvas.style.cursor = "grab";
+        this.drawingCanvas.addEventListener(
+          "pointerup",
+          this.drawingPrameters.handleOnDrawingMouseUp
+        );
+        this.drawingCanvas.addEventListener(
+          "pointermove",
+          this.drawingPrameters.handleOnPanMouseMove
+        );
+      } else {
+        return;
+      }
+    };
+    // disable browser right click menu
+    this.drawingCanvas.addEventListener(
+      "pointerdown",
+      this.drawingPrameters.handleOnDrawingMouseDown,
+      true
+    );
 
     const redrawPreviousImageToLabelCtx = (
       ctx: CanvasRenderingContext2D,
@@ -1676,7 +1731,7 @@ export class nrrd_tools {
       );
     };
 
-    const handleDrawingMouseUp = (e: MouseEvent) => {
+    this.drawingPrameters.handleOnDrawingMouseUp = (e: MouseEvent) => {
       if (e.button === 0) {
         if (this.Is_Shift_Pressed || Is_Painting) {
           leftclicked = false;
@@ -1686,7 +1741,7 @@ export class nrrd_tools {
 
           this.drawingCanvas.removeEventListener(
             "pointermove",
-            handleOnPainterMove
+            this.drawingPrameters.handleOnDrawingMouseMove
           );
           if (!this.gui_states.Eraser) {
             if (this.gui_states.segmentation) {
@@ -1761,19 +1816,65 @@ export class nrrd_tools {
             ].push(image);
             this.undoArray.push(undoObj);
           }
-          console.log("hghg");
-
           // add wheel after pointer up
-          this.drawingCanvas.addEventListener("wheel", this.handleWheelMove, {
-            passive: false,
-          });
+          this.drawingCanvas.addEventListener(
+            "wheel",
+            this.drawingPrameters.handleZoomWheel,
+            {
+              passive: false,
+            }
+          );
+        } else if (this.gui_states.sphere) {
+          console.log("sphere up");
+          console.log(this.nrrd_states.sphereRadius);
+          let mouseX = e.offsetX;
+          let mouseY = e.offsetY;
+          let convertObj;
+          type convertObjType = {
+            currentIndex: number;
+            oldIndex: number;
+            convertCursorNumX: number;
+            convertCursorNumY: number;
+          };
+
+          this.nrrd_states.sphereOrigin[this.axis] = [
+            mouseX,
+            mouseY,
+            this.nrrd_states.currentIndex,
+          ];
+
+          switch (this.axis) {
+            case "x":
+              convertObj = this.convertCursorPoint(
+                "x",
+                "y",
+                mouseX,
+                mouseY,
+                this.nrrd_states.currentIndex
+              ) as convertObjType;
+              this.nrrd_states.sphereOrigin["y"] = [
+                convertObj?.convertCursorNumX,
+                convertObj?.convertCursorNumY,
+                convertObj?.currentIndex,
+              ];
+              break;
+            case "y":
+              break;
+            case "z":
+              break;
+          }
+          this.drawingCanvas.removeEventListener(
+            "wheel",
+            this.drawingPrameters.handleSphereWheel,
+            true
+          );
         }
       } else if (e.button === 2) {
         rightclicked = false;
         this.drawingCanvas.style.cursor = "grab";
         this.drawingCanvas.removeEventListener(
           "pointermove",
-          handleDragPaintPanel
+          this.drawingPrameters.handleOnPanMouseMove
         );
       } else {
         return;
@@ -1792,7 +1893,12 @@ export class nrrd_tools {
         this.drawingLayerMasterCtx.closePath();
         this.drawingCanvas.removeEventListener(
           "pointermove",
-          handleOnPainterMove
+          this.drawingPrameters.handleOnDrawingMouseMove
+        );
+        this.drawingCanvas.removeEventListener(
+          "wheel",
+          this.drawingPrameters.handleSphereWheel,
+          true
         );
       }
       if (rightclicked) {
@@ -1800,7 +1906,7 @@ export class nrrd_tools {
         this.drawingCanvas.style.cursor = "grab";
         this.drawingCanvas.removeEventListener(
           "pointermove",
-          handleDragPaintPanel
+          this.drawingPrameters.handleOnPanMouseMove
         );
       }
 
@@ -1885,6 +1991,8 @@ export class nrrd_tools {
     });
   }
 
+  // for crosshair
+
   private drawLine = (x1: number, y1: number, x2: number, y2: number) => {
     this.drawingCtx.beginPath();
     this.drawingCtx.moveTo(x1, y1);
@@ -1892,6 +2000,25 @@ export class nrrd_tools {
     this.drawingCtx.strokeStyle = this.gui_states.color;
     this.drawingCtx.stroke();
   };
+  // for sphere
+  private drawSphere(
+    mouseX: number,
+    mouseY: number,
+    radius: number,
+    ctx: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement
+  ) {
+    // clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.drawingLayerMasterCtx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.beginPath();
+    ctx.arc(mouseX, mouseY, radius, 0, 2 * Math.PI);
+    ctx.fillStyle = this.gui_states.fillColor;
+    ctx.fill();
+    ctx.closePath();
+  }
 
   // need to update
   private undoLastPainting() {
@@ -1971,11 +2098,49 @@ export class nrrd_tools {
     });
   }
 
-  private configMouseWheel(
+  // drawing canvas mouse shpere wheel
+  private configMouseSphereWheel() {
+    const sphereEvent = (e: WheelEvent) => {
+      e.preventDefault();
+      let { ctx, canvas } = this.setCurrentLayer();
+
+      if (e.deltaY < 0) {
+        this.nrrd_states.sphereRadius += 1;
+      } else {
+        this.nrrd_states.sphereRadius -= 1;
+      }
+      // limited the radius max and min
+      this.nrrd_states.sphereRadius = Math.max(
+        1,
+        Math.min(this.nrrd_states.sphereRadius, 50)
+      );
+      // get mouse position
+      const mouseX = e.offsetX;
+      const mouseY = e.offsetY;
+      this.drawSphere(
+        mouseX,
+        mouseY,
+        this.nrrd_states.sphereRadius,
+        ctx,
+        canvas
+      );
+      this.drawingLayerMasterCtx.drawImage(
+        canvas,
+        0,
+        0,
+        this.nrrd_states.changedWidth,
+        this.nrrd_states.changedHeight
+      );
+    };
+    return sphereEvent;
+  }
+
+  // drawing canvas mouse zoom wheel
+  private configMouseZoomWheel(
     controls?: Copper3dTrackballControls | TrackballControls | OrbitControls
   ) {
     let moveDistance = 1;
-    const handleWheelMove = (e: WheelEvent) => {
+    const handleZoomWheelMove = (e: WheelEvent) => {
       if (this.Is_Shift_Pressed) {
         return;
       }
@@ -2019,7 +2184,7 @@ export class nrrd_tools {
       }
       this.nrrd_states.sizeFoctor = moveDistance;
     };
-    return handleWheelMove;
+    return handleZoomWheelMove;
   }
 
   private useEraser() {
@@ -2966,16 +3131,47 @@ export class nrrd_tools {
       .min(0.1)
       .max(1)
       .step(0.01);
-    actionsFolder.add(this.gui_states, "segmentation").name("Pencil");
+    actionsFolder
+      .add(this.gui_states, "segmentation")
+      .name("Pencil")
+      .onChange(() => {
+        if (this.gui_states.segmentation) {
+          // add canvas brush circle move event listeners
+          this.drawingCanvas.removeEventListener(
+            "mouseover",
+            this.drawingPrameters.handleOnDrawingBrushCricleMove
+          );
+          this.drawingCanvas.removeEventListener(
+            "mouseout",
+            this.drawingPrameters.handleOnDrawingBrushCricleMove
+          );
+        } else {
+          // add canvas brush circle move event listeners
+          this.drawingCanvas.addEventListener(
+            "mouseover",
+            this.drawingPrameters.handleOnDrawingBrushCricleMove
+          );
+          this.drawingCanvas.addEventListener(
+            "mouseout",
+            this.drawingPrameters.handleOnDrawingBrushCricleMove
+          );
+        }
+      });
     actionsFolder
       .add(this.gui_states, "sphere")
       .name("Sphere")
       .onChange(() => {
         if (this.gui_states.sphere) {
-          this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
+          this.drawingCanvas.removeEventListener(
+            "wheel",
+            this.drawingPrameters.handleZoomWheel
+          );
           this.removeDragMode();
         } else {
-          this.drawingCanvas.addEventListener("wheel", this.handleWheelMove);
+          this.drawingCanvas.addEventListener(
+            "wheel",
+            this.drawingPrameters.handleZoomWheel
+          );
           this.configDragMode();
         }
       });
