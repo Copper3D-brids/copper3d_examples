@@ -39,6 +39,7 @@ onMounted(() => {
     performance: true,
     light: true,
     alpha: true,
+    logarithmicDepthBuffer: true,
   });
   appRenderer.closeGui();
 

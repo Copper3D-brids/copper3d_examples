@@ -142,6 +142,7 @@ function loadModel(url: string, name: string) {
   scene = appRenderer.getSceneByName(name) as Copper.copperScene;
   if (scene == undefined) {
     scene = appRenderer.createScene(name);
+
     allScenes.push(scene as Copper.copperScene);
     const funa = () => {
       // window.location.replace(
@@ -161,7 +162,11 @@ function loadModel(url: string, name: string) {
       (scene.controls as Copper.Copper3dTrackballControls).staticMoving = true;
       scene.controls.panSpeed = 3;
       scene.controls.rotateSpeed = 3;
-      console.log(scene.controls);
+      scene.controls.mouseButtons = {
+        LEFT: -1,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.ROTATE,
+      };
 
       if (name === "test") {
         scene.loadGltf(url, (content) => {

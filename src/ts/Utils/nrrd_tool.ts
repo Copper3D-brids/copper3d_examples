@@ -20,14 +20,20 @@ import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import copperMScene from "../Scene/copperMScene";
 import copperScene from "../Scene/copperScene";
-import { throttle } from "./raycaster";
-import { switchEraserSize } from "./utils";
+import { throttle } from "./utils";
+import { switchEraserSize, switchPencilIcon } from "./utils";
 import { saveFileAsJson } from "./download";
 import {
   restructData,
   convertReformatDataToBlob,
 } from "./workers/reformatSaveDataWorker";
-import { el } from "element-plus/es/locale";
+
+type convertObjType = {
+  currentIndex: number;
+  oldIndex: number;
+  convertCursorNumX: number;
+  convertCursorNumY: number;
+};
 
 export class nrrd_tools {
   container: HTMLDivElement;
@@ -61,6 +67,8 @@ export class nrrd_tools {
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
   private displayCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadCanvas: HTMLCanvasElement = document.createElement("canvas");
+  private drawingSphereCanvas: HTMLCanvasElement =
+    document.createElement("canvas");
   // use to convert the store image with original size in storeAllImages function!
   private emptyCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadImage: HTMLAnchorElement = document.createElement("a");
@@ -76,6 +84,7 @@ export class nrrd_tools {
   private displayCtx: CanvasRenderingContext2D;
   private drawingCtx: CanvasRenderingContext2D;
   private emptyCtx: CanvasRenderingContext2D;
+  private drawingSphereCtx: CanvasRenderingContext2D;
   private drawingLayerMasterCtx: CanvasRenderingContext2D;
   private drawingLayerOneCtx: CanvasRenderingContext2D;
   private drawingLayerTwoCtx: CanvasRenderingContext2D;
@@ -94,6 +103,7 @@ export class nrrd_tools {
   private initState: boolean = true;
   private preTimer: any;
   private eraserUrls: string[] = [];
+  private pencilUrls: string[] = [];
 
   private nrrd_states = {
     originWidth: 0,
@@ -128,6 +138,7 @@ export class nrrd_tools {
     cursorPageY: 0,
     // x: [cursorX, cursorY, sliceIndex]
     sphereOrigin: { x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0] },
+    spherePlanB: true,
     sphereRadius: 10,
     Mouse_Over_x: 0,
     Mouse_Over_y: 0,
@@ -148,10 +159,7 @@ export class nrrd_tools {
       height: number,
       clearAllFlag: boolean
     ) => {},
-    // defaultPaintCursor:
-    //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
-    defaultPaintCursor:
-      "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto",
+    defaultPaintCursor: switchPencilIcon("dot"),
     drawStartPos: new THREE.Vector2(1, 1),
   };
 
@@ -256,6 +264,9 @@ export class nrrd_tools {
       "2d"
     ) as CanvasRenderingContext2D;
     this.emptyCtx = this.emptyCanvas.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
+    this.drawingSphereCtx = this.drawingSphereCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
     this.drawingLayerMasterCtx = this.drawingCanvasLayerMaster.getContext(
@@ -454,6 +465,14 @@ export class nrrd_tools {
   setEraserUrls(urls: string[]) {
     this.eraserUrls = urls;
   }
+  setPencilIconUrls(urls: string[]) {
+    this.pencilUrls = urls;
+    this.nrrd_states.defaultPaintCursor = switchPencilIcon(
+      "dot",
+      this.pencilUrls
+    );
+    this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
+  }
   getCurrentImageDimension() {
     return this.nrrd_states.dimensions;
   }
@@ -637,7 +656,7 @@ export class nrrd_tools {
    *  */
   setSliceOrientation(axisTo: "x" | "y" | "z") {
     let convetObj;
-    if (this.nrrd_states.enableCursorChoose) {
+    if (this.nrrd_states.enableCursorChoose || this.gui_states.sphere) {
       if (this.axis === "z") {
         this.cursorPage.z.index = this.nrrd_states.currentIndex;
         this.cursorPage.z.cursorPageX = this.nrrd_states.cursorPageX;
@@ -775,6 +794,14 @@ export class nrrd_tools {
 
     this.axis = axisTo;
     this.resetDisplaySlicesStatus();
+    // for sphere plan a
+    if (this.gui_states.sphere && !this.nrrd_states.spherePlanB) {
+      this.drawSphere(
+        this.nrrd_states.sphereOrigin[axisTo][0],
+        this.nrrd_states.sphereOrigin[axisTo][1],
+        this.nrrd_states.sphereRadius
+      );
+    }
   }
 
   addSkip(index: number) {
@@ -1220,6 +1247,7 @@ export class nrrd_tools {
         );
       this.dragPrameters.y = ev.offsetY / this.dragPrameters.h;
     }, this.dragPrameters.sensivity * 200);
+
     this.dragPrameters.handleOnDragMouseUp = (ev: MouseEvent) => {
       // after drag, add the wheel event
       this.drawingCanvas.addEventListener(
@@ -1611,45 +1639,24 @@ export class nrrd_tools {
             e.offsetX / this.nrrd_states.sizeFoctor;
           this.nrrd_states.cursorPageY =
             e.offsetY / this.nrrd_states.sizeFoctor;
-          this.nrrd_states.isCursorSelect = true;
-          switch (this.axis) {
-            case "x":
-              this.cursorPage.x.updated = true;
-              this.cursorPage.y.updated = false;
-              this.cursorPage.z.updated = false;
-              break;
-            case "y":
-              this.cursorPage.x.updated = false;
-              this.cursorPage.y.updated = true;
-              this.cursorPage.z.updated = false;
-              break;
-            case "z":
-              this.cursorPage.x.updated = false;
-              this.cursorPage.y.updated = false;
-              this.cursorPage.z.updated = true;
-              break;
-          }
+          this.enableCrosshair();
         } else if (this.gui_states.sphere) {
-          console.log("sphere down");
-          let { ctx, canvas } = this.setCurrentLayer();
           let mouseX = e.offsetX;
           let mouseY = e.offsetY;
 
-          // draw circle
-          this.drawSphere(
+          //  record mouseX,Y, and enable crosshair function
+          this.nrrd_states.sphereOrigin[this.axis] = [
             mouseX,
             mouseY,
-            this.nrrd_states.sphereRadius,
-            ctx,
-            canvas
-          );
-          this.drawingLayerMasterCtx.drawImage(
-            canvas,
-            0,
-            0,
-            this.nrrd_states.changedWidth,
-            this.nrrd_states.changedHeight
-          );
+            this.nrrd_states.currentIndex,
+          ];
+          this.setUpSphereOrigins(mouseX, mouseY);
+          this.nrrd_states.cursorPageX = mouseX;
+          this.nrrd_states.cursorPageY = mouseY;
+          this.enableCrosshair();
+
+          // draw circle setup width/height for sphere canvas
+          this.drawSphere(mouseX, mouseY, this.nrrd_states.sphereRadius);
           this.drawingCanvas.addEventListener(
             "wheel",
             this.drawingPrameters.handleSphereWheel,
@@ -1824,45 +1831,26 @@ export class nrrd_tools {
               passive: false,
             }
           );
-        } else if (this.gui_states.sphere) {
-          console.log("sphere up");
-          console.log(this.nrrd_states.sphereRadius);
-          let mouseX = e.offsetX;
-          let mouseY = e.offsetY;
-          let convertObj;
-          type convertObjType = {
-            currentIndex: number;
-            oldIndex: number;
-            convertCursorNumX: number;
-            convertCursorNumY: number;
-          };
+        } else if (
+          this.gui_states.sphere &&
+          !this.nrrd_states.enableCursorChoose
+        ) {
+          // let { ctx, canvas } = this.setCurrentLayer();
+          // let mouseX = e.offsetX;
+          // let mouseY = e.offsetY;
 
-          this.nrrd_states.sphereOrigin[this.axis] = [
-            mouseX,
-            mouseY,
-            this.nrrd_states.currentIndex,
-          ];
-
-          switch (this.axis) {
-            case "x":
-              convertObj = this.convertCursorPoint(
-                "x",
-                "y",
-                mouseX,
-                mouseY,
-                this.nrrd_states.currentIndex
-              ) as convertObjType;
-              this.nrrd_states.sphereOrigin["y"] = [
-                convertObj?.convertCursorNumX,
-                convertObj?.convertCursorNumY,
-                convertObj?.currentIndex,
-              ];
-              break;
-            case "y":
-              break;
-            case "z":
-              break;
+          // plan B
+          // findout all index in the sphere radius range in Axial view
+          if (this.nrrd_states.spherePlanB) {
+            // clear stroe images
+            this.clearStoreImages();
+            for (let i = 0; i < this.nrrd_states.sphereRadius; i++) {
+              this.drawSphereOnEachViews(i, "x");
+              this.drawSphereOnEachViews(i, "y");
+              this.drawSphereOnEachViews(i, "z");
+            }
           }
+
           this.drawingCanvas.removeEventListener(
             "wheel",
             this.drawingPrameters.handleSphereWheel,
@@ -1991,7 +1979,64 @@ export class nrrd_tools {
     });
   }
 
-  // for crosshair
+  private enableCrosshair() {
+    this.nrrd_states.isCursorSelect = true;
+    switch (this.axis) {
+      case "x":
+        this.cursorPage.x.updated = true;
+        this.cursorPage.y.updated = false;
+        this.cursorPage.z.updated = false;
+        break;
+      case "y":
+        this.cursorPage.x.updated = false;
+        this.cursorPage.y.updated = true;
+        this.cursorPage.z.updated = false;
+        break;
+      case "z":
+        this.cursorPage.x.updated = false;
+        this.cursorPage.y.updated = false;
+        this.cursorPage.z.updated = true;
+        break;
+    }
+  }
+
+  private setUpSphereOrigins(mouseX: number, mouseY: number) {
+    const convertCursor = (from: "x" | "y" | "z", to: "x" | "y" | "z") => {
+      const convertObj = this.convertCursorPoint(
+        from,
+        to,
+        mouseX,
+        mouseY,
+        this.nrrd_states.currentIndex
+      ) as convertObjType;
+      return {
+        convertCursorNumX: convertObj?.convertCursorNumX,
+        convertCursorNumY: convertObj?.convertCursorNumY,
+        currentIndex: convertObj?.currentIndex,
+      };
+    };
+
+    const axisConversions = {
+      x: { axisTo1: "y", axisTo2: "z" },
+      y: { axisTo1: "z", axisTo2: "x" },
+      z: { axisTo1: "x", axisTo2: "y" },
+    };
+
+    const { axisTo1, axisTo2 } = axisConversions[this.axis] as {
+      axisTo1: "x" | "y" | "z";
+      axisTo2: "x" | "y" | "z";
+    };
+    this.nrrd_states.sphereOrigin[axisTo1] = [
+      convertCursor(this.axis, axisTo1).convertCursorNumX,
+      convertCursor(this.axis, axisTo1).convertCursorNumY,
+      convertCursor(this.axis, axisTo1).currentIndex,
+    ];
+    this.nrrd_states.sphereOrigin[axisTo2] = [
+      convertCursor(this.axis, axisTo2).convertCursorNumX,
+      convertCursor(this.axis, axisTo2).convertCursorNumY,
+      convertCursor(this.axis, axisTo2).currentIndex,
+    ];
+  }
 
   private drawLine = (x1: number, y1: number, x2: number, y2: number) => {
     this.drawingCtx.beginPath();
@@ -2000,24 +2045,70 @@ export class nrrd_tools {
     this.drawingCtx.strokeStyle = this.gui_states.color;
     this.drawingCtx.stroke();
   };
-  // for sphere
-  private drawSphere(
-    mouseX: number,
-    mouseY: number,
-    radius: number,
-    ctx: CanvasRenderingContext2D,
-    canvas: HTMLCanvasElement
-  ) {
-    // clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    this.drawingLayerMasterCtx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // for sphere
+
+  private drawSphereOnEachViews(decay: number, axis: "x" | "y" | "z") {
+    // init sphere canvas width and height
+    this.setSphereCanvasSize(axis);
+
+    const mouseX = this.nrrd_states.sphereOrigin[axis][0];
+    const mouseY = this.nrrd_states.sphereOrigin[axis][1];
+    const originIndex = this.nrrd_states.sphereOrigin[axis][2];
+    const preIndex = originIndex - decay;
+    const nextIndex = originIndex + decay;
+    const ctx = this.drawingSphereCtx;
+    const canvas = this.drawingSphereCanvas;
+    // if (
+    //   preIndex < this.nrrd_states.minIndex ||
+    //   nextIndex > this.nrrd_states.maxIndex
+    // )
+    //   return;
+    if (preIndex === nextIndex) {
+      this.drawSphereCore(ctx, mouseX, mouseY, this.nrrd_states.sphereRadius);
+      this.storeSphereImages(preIndex, axis);
+    } else {
+      this.drawSphereCore(
+        ctx,
+        mouseX,
+        mouseY,
+        this.nrrd_states.sphereRadius - decay
+      );
+      this.drawImageOnEmptyImage(canvas);
+      this.storeSphereImages(preIndex, axis);
+      this.storeSphereImages(nextIndex, axis);
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  private drawSphereCore(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number
+  ) {
     ctx.beginPath();
-    ctx.arc(mouseX, mouseY, radius, 0, 2 * Math.PI);
+    ctx.arc(x, y, radius * this.nrrd_states.sizeFoctor, 0, 2 * Math.PI);
     ctx.fillStyle = this.gui_states.fillColor;
     ctx.fill();
     ctx.closePath();
+  }
+
+  private drawSphere(mouseX: number, mouseY: number, radius: number) {
+    // clear canvas
+    this.drawingSphereCanvas.width = this.drawingCanvasLayerMaster.width;
+    this.drawingSphereCanvas.height = this.drawingCanvasLayerMaster.height;
+    const canvas = this.drawingSphereCanvas;
+    const ctx = this.drawingSphereCtx;
+    this.drawingLayerMasterCtx.clearRect(0, 0, canvas.width, canvas.height);
+    this.drawSphereCore(ctx, mouseX, mouseY, radius);
+    this.drawingLayerMasterCtx.drawImage(
+      canvas,
+      0,
+      0,
+      this.nrrd_states.changedWidth,
+      this.nrrd_states.changedHeight
+    );
   }
 
   // need to update
@@ -2102,7 +2193,6 @@ export class nrrd_tools {
   private configMouseSphereWheel() {
     const sphereEvent = (e: WheelEvent) => {
       e.preventDefault();
-      let { ctx, canvas } = this.setCurrentLayer();
 
       if (e.deltaY < 0) {
         this.nrrd_states.sphereRadius += 1;
@@ -2114,23 +2204,15 @@ export class nrrd_tools {
         1,
         Math.min(this.nrrd_states.sphereRadius, 50)
       );
+      console.log(
+        this.nrrd_states.sphereOrigin[this.axis][0],
+        this.nrrd_states.sphereOrigin[this.axis][1]
+      );
+
       // get mouse position
-      const mouseX = e.offsetX;
-      const mouseY = e.offsetY;
-      this.drawSphere(
-        mouseX,
-        mouseY,
-        this.nrrd_states.sphereRadius,
-        ctx,
-        canvas
-      );
-      this.drawingLayerMasterCtx.drawImage(
-        canvas,
-        0,
-        0,
-        this.nrrd_states.changedWidth,
-        this.nrrd_states.changedHeight
-      );
+      const mouseX = this.nrrd_states.sphereOrigin[this.axis][0];
+      const mouseY = this.nrrd_states.sphereOrigin[this.axis][1];
+      this.drawSphere(mouseX, mouseY, this.nrrd_states.sphereRadius);
     };
     return sphereEvent;
   }
@@ -2553,19 +2635,35 @@ export class nrrd_tools {
     }
   }
 
+  private drawImageOnEmptyImage(canvas: HTMLCanvasElement) {
+    this.emptyCtx.drawImage(
+      canvas,
+      0,
+      0,
+      this.emptyCanvas.width,
+      this.emptyCanvas.height
+    );
+  }
+
+  private storeSphereImages(index: number, axis: "x" | "y" | "z") {
+    this.setEmptyCanvasSize(axis);
+    this.drawImageOnEmptyImage(this.drawingSphereCanvas);
+    let imageData = this.emptyCtx.getImageData(
+      0,
+      0,
+      this.emptyCanvas.width,
+      this.emptyCanvas.height
+    );
+    this.storeImageToAxis(index, this.paintImages, imageData, axis);
+  }
+
   private storeAllImages(index: number, label: string) {
     // const image: HTMLImageElement = new Image();
 
     // resize the drawing image data
-    if (!this.nrrd_states.loadMaskJson) {
+    if (!this.nrrd_states.loadMaskJson && !this.gui_states.sphere) {
       this.setEmptyCanvasSize();
-      this.emptyCtx.drawImage(
-        this.drawingCanvasLayerMaster,
-        0,
-        0,
-        this.emptyCanvas.width,
-        this.emptyCanvas.height
-      );
+      this.drawImageOnEmptyImage(this.drawingCanvasLayerMaster);
     }
 
     let imageData = this.emptyCtx.getImageData(
@@ -2729,7 +2827,7 @@ export class nrrd_tools {
     }
 
     this.storeImageToAxis(index, this.paintImages, imageData);
-    if (!this.nrrd_states.loadMaskJson) {
+    if (!this.nrrd_states.loadMaskJson && !this.gui_states.sphere) {
       this.storeEachLayerImage(index, label);
     }
   }
@@ -2737,7 +2835,8 @@ export class nrrd_tools {
   private storeImageToAxis(
     index: number,
     paintedImages: paintImagesType,
-    imageData: ImageData
+    imageData: ImageData,
+    axis?: "x" | "y" | "z"
   ) {
     let temp: paintImageType = {
       index,
@@ -2745,7 +2844,7 @@ export class nrrd_tools {
     };
 
     let drawedImage: paintImageType;
-    switch (this.axis) {
+    switch (!!axis ? axis : this.axis) {
       case "x":
         drawedImage = this.filterDrawedImage("x", index, paintedImages);
         drawedImage
@@ -2774,13 +2873,7 @@ export class nrrd_tools {
   ) {
     if (!this.nrrd_states.loadMaskJson) {
       this.setEmptyCanvasSize();
-      this.emptyCtx.drawImage(
-        canvas,
-        0,
-        0,
-        this.emptyCanvas.width,
-        this.emptyCanvas.height
-      );
+      this.drawImageOnEmptyImage(canvas);
     }
     const imageData = this.emptyCtx.getImageData(
       0,
@@ -2925,8 +3018,8 @@ export class nrrd_tools {
   }
 
   // set the empty canvas width and height, to reduce duplicate codes
-  private setEmptyCanvasSize() {
-    switch (this.axis) {
+  private setEmptyCanvasSize(axis?: "x" | "y" | "z") {
+    switch (!!axis ? axis : this.axis) {
       case "x":
         this.emptyCanvas.width = this.nrrd_states.nrrd_z_pixel;
         this.emptyCanvas.height = this.nrrd_states.nrrd_y_pixel;
@@ -2938,6 +3031,22 @@ export class nrrd_tools {
       case "z":
         this.emptyCanvas.width = this.nrrd_states.nrrd_x_pixel;
         this.emptyCanvas.height = this.nrrd_states.nrrd_y_pixel;
+        break;
+    }
+  }
+  private setSphereCanvasSize(axis?: "x" | "y" | "z") {
+    switch (!!axis ? axis : this.axis) {
+      case "x":
+        this.drawingSphereCanvas.width = this.nrrd_states.nrrd_z_mm;
+        this.drawingSphereCanvas.height = this.nrrd_states.nrrd_y_mm;
+        break;
+      case "y":
+        this.drawingSphereCanvas.width = this.nrrd_states.nrrd_x_mm;
+        this.drawingSphereCanvas.height = this.nrrd_states.nrrd_z_mm;
+        break;
+      case "z":
+        this.drawingSphereCanvas.width = this.nrrd_states.nrrd_x_mm;
+        this.drawingSphereCanvas.height = this.nrrd_states.nrrd_y_mm;
         break;
     }
   }
@@ -3080,54 +3189,10 @@ export class nrrd_tools {
       this.removeGuiFolderChilden(modeFolder);
 
     modeFolder.open();
-    const actionsFolder = modeFolder.addFolder("Default Actions");
-
-    actionsFolder
-      .add(this.gui_states, "label", ["label1", "label2", "label3"])
-      .onChange((val) => {
-        if (val === "label1") {
-          this.gui_states.fillColor = "#00ff00";
-          this.gui_states.brushColor = "#00ff00";
-        } else if (val === "label2") {
-          this.gui_states.fillColor = "#ff0000";
-          this.gui_states.brushColor = "#ff0000";
-        } else if (val === "label3") {
-          this.gui_states.fillColor = "#0000ff";
-          this.gui_states.brushColor = "#0000ff";
-        }
-      });
-
-    actionsFolder
-      .add(this.gui_states, "cursor", ["crosshair", "pencil", "dot"])
-      .name("cursor icons")
-      .onChange((value) => {
-        if (value === "crosshair") {
-          this.nrrd_states.defaultPaintCursor = "crosshair";
-        }
-        if (value === "pencil") {
-          this.nrrd_states.defaultPaintCursor =
-            "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto";
-        }
-        if (value === "dot") {
-          this.nrrd_states.defaultPaintCursor =
-            "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto";
-        }
-        this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
-      });
-    actionsFolder
-      .add(this.gui_states, "mainAreaSize")
-      .name("zoom")
-      .min(1)
-      .max(8)
-      .onFinishChange((factor) => {
-        this.resetPaintArea();
-        this.nrrd_states.sizeFoctor = factor;
-        this.resizePaintArea(factor);
-      });
-    actionsFolder.add(this.gui_states, "resetZoom");
+    const actionsFolder = modeFolder.addFolder("DefaultActions");
     actionsFolder
       .add(this.gui_states, "globalAlpha")
-      .name("opacity")
+      .name("Opacity")
       .min(0.1)
       .max(1)
       .step(0.01);
@@ -3173,10 +3238,15 @@ export class nrrd_tools {
             this.drawingPrameters.handleZoomWheel
           );
           this.configDragMode();
+
+          // clear canvas
+          this.clearPaint();
+          this.clearStoreImages();
         }
       });
     actionsFolder
       .add(this.gui_states, "brushAndEraserSize")
+      .name("BrushAndEraserSize")
       .min(5)
       .max(50)
       .step(1)
@@ -3208,9 +3278,10 @@ export class nrrd_tools {
         this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
       }
     });
-    actionsFolder.add(this.gui_states, "clear");
-    actionsFolder.add(this.gui_states, "clearAll");
-    actionsFolder.add(this.gui_states, "undo");
+    actionsFolder.add(this.gui_states, "clear").name("Clear");
+    actionsFolder.add(this.gui_states, "clearAll").name("ClearAll");
+    actionsFolder.add(this.gui_states, "undo").name("Undo");
+    actionsFolder.add(this.gui_states, "resetZoom").name("ResetZoom");
 
     actionsFolder
       .add(
@@ -3220,7 +3291,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Image contrast")
+      .name("ImageContrast")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "windowHigh");
@@ -3230,33 +3301,73 @@ export class nrrd_tools {
         this.nrrd_states.readyToUpdate = true;
       });
 
-    actionsFolder.add(this.gui_states, "exportMarks");
+    const advanceFolder = modeFolder.addFolder("AdvanceSettings");
 
-    const advanceFolder = modeFolder.addFolder("Advance settings");
+    advanceFolder
+      .add(this.gui_states, "label", ["label1", "label2", "label3"])
+      .name("Label")
+      .onChange((val) => {
+        if (val === "label1") {
+          this.gui_states.fillColor = "#00ff00";
+          this.gui_states.brushColor = "#00ff00";
+        } else if (val === "label2") {
+          this.gui_states.fillColor = "#ff0000";
+          this.gui_states.brushColor = "#ff0000";
+        } else if (val === "label3") {
+          this.gui_states.fillColor = "#0000ff";
+          this.gui_states.brushColor = "#0000ff";
+        }
+      });
+
+    advanceFolder
+      .add(this.gui_states, "cursor", ["crosshair", "pencil", "dot"])
+      .name("CursorIcons")
+      .onChange((value) => {
+        this.nrrd_states.defaultPaintCursor = switchPencilIcon(
+          value,
+          this.pencilUrls
+        );
+        this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
+      });
+
+    advanceFolder
+      .add(this.gui_states, "mainAreaSize")
+      .name("Zoom")
+      .min(1)
+      .max(8)
+      .onFinishChange((factor) => {
+        this.resetPaintArea();
+        this.nrrd_states.sizeFoctor = factor;
+        this.resizePaintArea(factor);
+      });
 
     advanceFolder
       .add(this.gui_states, "dragSensitivity")
+      .name("DragSensitivity")
       .min(1)
       .max(this.nrrd_states.Max_sensitive)
       .step(1);
 
-    const segmentationFolder = advanceFolder.addFolder("Pencil settings");
+    const segmentationFolder = advanceFolder.addFolder("PencilSettings");
 
     segmentationFolder
       .add(this.gui_states, "lineWidth")
-      .name("outerLineWidth")
+      .name("OuterLineWidth")
       .min(1.7)
       .max(3)
       .step(0.01);
-    segmentationFolder.addColor(this.gui_states, "color");
-    segmentationFolder.addColor(this.gui_states, "fillColor");
-    const bushFolder = advanceFolder.addFolder("Brush settings");
-    bushFolder.addColor(this.gui_states, "brushColor");
+    segmentationFolder.addColor(this.gui_states, "color").name("Color");
+    segmentationFolder.addColor(this.gui_states, "fillColor").name("FillColor");
+    const bushFolder = advanceFolder.addFolder("BrushSettings");
+    bushFolder.addColor(this.gui_states, "brushColor").name("BrushColor");
     // modeFolder.add(this.stateMode, "EraserSize").min(1).max(50).step(1);
+    const maskFolder = advanceFolder.addFolder("MaskDownload");
+    maskFolder
+      .add(this.gui_states, "downloadCurrentMask")
+      .name("DownloadCurrentMask");
+    maskFolder.add(this.gui_states, "exportMarks").name("ExportMask");
 
-    advanceFolder.add(this.gui_states, "downloadCurrentMask");
-
-    const contrastFolder = advanceFolder.addFolder("contrast advance settings");
+    const contrastFolder = advanceFolder.addFolder("ContrastAdvanceSettings");
     contrastFolder
       .add(
         this.mainPreSlice.volume,
@@ -3265,7 +3376,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Lower Threshold")
+      .name("LowerThreshold")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "lowerThreshold");
@@ -3282,7 +3393,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Upper Threshold")
+      .name("UpperThreshold")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "upperThreshold");
@@ -3299,7 +3410,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Window Low")
+      .name("WindowLow")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "windowLow");
