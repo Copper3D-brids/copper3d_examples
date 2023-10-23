@@ -20,14 +20,20 @@ import { Copper3dTrackballControls } from "../Controls/Copper3dTrackballControls
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import copperMScene from "../Scene/copperMScene";
 import copperScene from "../Scene/copperScene";
-import { throttle } from "./raycaster";
-import { switchEraserSize } from "./utils";
+import { throttle } from "./utils";
+import { switchEraserSize, switchPencilIcon } from "./utils";
 import { saveFileAsJson } from "./download";
 import {
   restructData,
   convertReformatDataToBlob,
 } from "./workers/reformatSaveDataWorker";
-import { el } from "element-plus/es/locale";
+
+type convertObjType = {
+  currentIndex: number;
+  oldIndex: number;
+  convertCursorNumX: number;
+  convertCursorNumY: number;
+};
 
 export class nrrd_tools {
   container: HTMLDivElement;
@@ -61,6 +67,8 @@ export class nrrd_tools {
   private drawingCanvas: HTMLCanvasElement = document.createElement("canvas");
   private displayCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadCanvas: HTMLCanvasElement = document.createElement("canvas");
+  private drawingSphereCanvas: HTMLCanvasElement =
+    document.createElement("canvas");
   // use to convert the store image with original size in storeAllImages function!
   private emptyCanvas: HTMLCanvasElement = document.createElement("canvas");
   private downloadImage: HTMLAnchorElement = document.createElement("a");
@@ -76,6 +84,7 @@ export class nrrd_tools {
   private displayCtx: CanvasRenderingContext2D;
   private drawingCtx: CanvasRenderingContext2D;
   private emptyCtx: CanvasRenderingContext2D;
+  private drawingSphereCtx: CanvasRenderingContext2D;
   private drawingLayerMasterCtx: CanvasRenderingContext2D;
   private drawingLayerOneCtx: CanvasRenderingContext2D;
   private drawingLayerTwoCtx: CanvasRenderingContext2D;
@@ -86,7 +95,6 @@ export class nrrd_tools {
   private Is_Shift_Pressed: boolean = false;
   private Is_Draw: boolean = false;
   private sensitiveArray: number[] = [];
-  private handleWheelMove: (e: WheelEvent) => void = () => {};
   start: () => void = () => {};
 
   private paintedImage: paintImageType | undefined;
@@ -95,6 +103,7 @@ export class nrrd_tools {
   private initState: boolean = true;
   private preTimer: any;
   private eraserUrls: string[] = [];
+  private pencilUrls: string[] = [];
 
   private nrrd_states = {
     originWidth: 0,
@@ -127,8 +136,10 @@ export class nrrd_tools {
     isCursorSelect: false,
     cursorPageX: 0,
     cursorPageY: 0,
-    sphereOrigin: { x: 0, y: 0, z: 0 },
-    sphereRadius: 0,
+    // x: [cursorX, cursorY, sliceIndex]
+    sphereOrigin: { x: [0, 0, 0], y: [0, 0, 0], z: [0, 0, 0] },
+    spherePlanB: true,
+    sphereRadius: 10,
     Mouse_Over_x: 0,
     Mouse_Over_y: 0,
     Mouse_Over: false,
@@ -148,10 +159,7 @@ export class nrrd_tools {
       height: number,
       clearAllFlag: boolean
     ) => {},
-    // defaultPaintCursor:
-    //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto",
-    defaultPaintCursor:
-      "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto",
+    defaultPaintCursor: switchPencilIcon("dot"),
     drawStartPos: new THREE.Vector2(1, 1),
   };
 
@@ -236,6 +244,17 @@ export class nrrd_tools {
     handleOnDragMouseMove: (ev: MouseEvent) => {},
   };
 
+  private drawingPrameters = {
+    handleOnDrawingMouseDown: (ev: MouseEvent) => {},
+    handleOnDrawingMouseMove: (ev: MouseEvent) => {},
+    handleOnPanMouseMove: (ev: MouseEvent) => {},
+    handleOnDrawingMouseUp: (ev: MouseEvent) => {},
+    handleOnDrawingMouseLeave: (ev: MouseEvent) => {},
+    handleOnDrawingBrushCricleMove: (ev: MouseEvent) => {},
+    handleZoomWheel: (e: WheelEvent) => {},
+    handleSphereWheel: (e: WheelEvent) => {},
+  };
+
   constructor(container: HTMLDivElement) {
     this.container = container;
     this.displayCtx = this.displayCanvas.getContext(
@@ -245,6 +264,9 @@ export class nrrd_tools {
       "2d"
     ) as CanvasRenderingContext2D;
     this.emptyCtx = this.emptyCanvas.getContext(
+      "2d"
+    ) as CanvasRenderingContext2D;
+    this.drawingSphereCtx = this.drawingSphereCanvas.getContext(
       "2d"
     ) as CanvasRenderingContext2D;
     this.drawingLayerMasterCtx = this.drawingCanvasLayerMaster.getContext(
@@ -279,7 +301,7 @@ export class nrrd_tools {
       this.sensitiveArray.push((i + 1) / 20);
     }
     this.container.addEventListener("keydown", (ev: KeyboardEvent) => {
-      if (ev.key === "Shift") {
+      if (ev.key === "Shift" && !this.gui_states.sphere) {
         this.Is_Shift_Pressed = true;
         this.nrrd_states.enableCursorChoose = false;
       }
@@ -442,6 +464,14 @@ export class nrrd_tools {
 
   setEraserUrls(urls: string[]) {
     this.eraserUrls = urls;
+  }
+  setPencilIconUrls(urls: string[]) {
+    this.pencilUrls = urls;
+    this.nrrd_states.defaultPaintCursor = switchPencilIcon(
+      "dot",
+      this.pencilUrls
+    );
+    this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
   }
   getCurrentImageDimension() {
     return this.nrrd_states.dimensions;
@@ -626,7 +656,7 @@ export class nrrd_tools {
    *  */
   setSliceOrientation(axisTo: "x" | "y" | "z") {
     let convetObj;
-    if (this.nrrd_states.enableCursorChoose) {
+    if (this.nrrd_states.enableCursorChoose || this.gui_states.sphere) {
       if (this.axis === "z") {
         this.cursorPage.z.index = this.nrrd_states.currentIndex;
         this.cursorPage.z.cursorPageX = this.nrrd_states.cursorPageX;
@@ -764,6 +794,14 @@ export class nrrd_tools {
 
     this.axis = axisTo;
     this.resetDisplaySlicesStatus();
+    // for sphere plan a
+    if (this.gui_states.sphere && !this.nrrd_states.spherePlanB) {
+      this.drawSphere(
+        this.nrrd_states.sphereOrigin[axisTo][0],
+        this.nrrd_states.sphereOrigin[axisTo][1],
+        this.nrrd_states.sphereRadius
+      );
+    }
   }
 
   addSkip(index: number) {
@@ -1156,7 +1194,7 @@ export class nrrd_tools {
     this.container.removeEventListener(
       "pointerup",
       this.dragPrameters.handleOnDragMouseUp,
-      false
+      true
     );
     this.setIsDrawFalse(1000);
   };
@@ -1172,7 +1210,10 @@ export class nrrd_tools {
 
     this.dragPrameters.handleOnDragMouseDown = (ev: MouseEvent) => {
       // before start drag event, remove wheel event.
-      this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
+      this.drawingCanvas.removeEventListener(
+        "wheel",
+        this.drawingPrameters.handleZoomWheel
+      );
       if (ev.button === 0) {
         // this.setSyncsliceNum();
         this.dragPrameters.y = ev.offsetY / this.dragPrameters.h;
@@ -1206,9 +1247,13 @@ export class nrrd_tools {
         );
       this.dragPrameters.y = ev.offsetY / this.dragPrameters.h;
     }, this.dragPrameters.sensivity * 200);
+
     this.dragPrameters.handleOnDragMouseUp = (ev: MouseEvent) => {
       // after drag, add the wheel event
-      this.drawingCanvas.addEventListener("wheel", this.handleWheelMove);
+      this.drawingCanvas.addEventListener(
+        "wheel",
+        this.drawingPrameters.handleZoomWheel
+      );
       this.setSyncsliceNum();
       this.container.removeEventListener(
         "pointermove",
@@ -1225,7 +1270,7 @@ export class nrrd_tools {
       }
     });
     this.container.addEventListener("keyup", (ev: KeyboardEvent) => {
-      if (ev.key === "Shift") {
+      if (ev.key === "Shift" && !this.gui_states.sphere) {
         this.configDragMode();
       }
     });
@@ -1443,6 +1488,7 @@ export class nrrd_tools {
     // draw lines starts position
     let Is_Painting = false;
     let lines: Array<mouseMovePositionType> = [];
+    const clearArc = this.useEraser();
 
     this.updateOriginAndChangedWH();
 
@@ -1469,13 +1515,22 @@ export class nrrd_tools {
     );
 
     // let a global variable to store the wheel move event
-    this.handleWheelMove = this.configMouseWheel(this.sceneIn?.controls);
+    this.drawingPrameters.handleZoomWheel = this.configMouseZoomWheel(
+      this.sceneIn?.controls
+    );
     // init to add it
-    this.drawingCanvas.addEventListener("wheel", this.handleWheelMove, {
-      passive: false,
-    });
+    this.drawingCanvas.addEventListener(
+      "wheel",
+      this.drawingPrameters.handleZoomWheel,
+      {
+        passive: false,
+      }
+    );
+    // sphere Wheel
+    this.drawingPrameters.handleSphereWheel = this.configMouseSphereWheel();
 
-    const handleDragPaintPanel = (e: MouseEvent) => {
+    // pan move
+    this.drawingPrameters.handleOnPanMouseMove = (e: MouseEvent) => {
       this.drawingCanvas.style.cursor = "grabbing";
       this.nrrd_states.previousPanelL = e.clientX - panelMoveInnerX;
       this.nrrd_states.previousPanelT = e.clientY - panelMoveInnerY;
@@ -1484,8 +1539,9 @@ export class nrrd_tools {
       this.displayCanvas.style.top = this.drawingCanvas.style.top =
         this.nrrd_states.previousPanelT + "px";
     };
-    // throttle(, 80);
-    const handleDrawingMouseMove = (e: MouseEvent) => {
+
+    // brush circle move
+    this.drawingPrameters.handleOnDrawingBrushCricleMove = (e: MouseEvent) => {
       e.preventDefault();
       this.nrrd_states.Mouse_Over_x = e.offsetX;
       this.nrrd_states.Mouse_Over_y = e.offsetY;
@@ -1495,134 +1551,21 @@ export class nrrd_tools {
       }
       if (e.type === "mouseout") {
         this.nrrd_states.Mouse_Over = false;
-
         this.drawingCanvas.removeEventListener(
           "mousemove",
-          handleDrawingMouseMove
+          this.drawingPrameters.handleOnDrawingBrushCricleMove
         );
       } else if (e.type === "mouseover") {
         this.nrrd_states.Mouse_Over = true;
         this.drawingCanvas.addEventListener(
           "mousemove",
-          handleDrawingMouseMove
+          this.drawingPrameters.handleOnDrawingBrushCricleMove
         );
       }
     };
 
-    // add canvas event listeners
-    this.drawingCanvas.addEventListener("mouseover", handleDrawingMouseMove);
-    this.drawingCanvas.addEventListener("mouseout", handleDrawingMouseMove);
-
-    // disable browser right click menu
-    this.drawingCanvas.addEventListener(
-      "pointerdown",
-      (e: MouseEvent) => {
-        if (leftclicked || rightclicked) {
-          this.drawingCanvas.removeEventListener(
-            "pointerup",
-            handleDrawingMouseUp
-          );
-          this.drawingLayerMasterCtx.closePath();
-          return;
-        }
-
-        // when switch slice, clear previousDrawingImage
-        // todo
-        if (currentSliceIndex !== this.mainPreSlice.index) {
-          this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
-          currentSliceIndex = this.mainPreSlice.index;
-        }
-
-        // remove it when mouse click down
-        this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
-
-        if (e.button === 0) {
-          if (this.Is_Shift_Pressed) {
-            leftclicked = true;
-            lines = [];
-            Is_Painting = true;
-            this.Is_Draw = true;
-
-            if (this.gui_states.Eraser) {
-              // this.drawingCanvas.style.cursor =
-              //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_48.png) 48 48, crosshair";
-              this.eraserUrls.length > 0
-                ? (this.drawingCanvas.style.cursor = switchEraserSize(
-                    this.gui_states.brushAndEraserSize,
-                    this.eraserUrls
-                  ))
-                : (this.drawingCanvas.style.cursor = switchEraserSize(
-                    this.gui_states.brushAndEraserSize
-                  ));
-            } else {
-              this.drawingCanvas.style.cursor =
-                this.nrrd_states.defaultPaintCursor;
-            }
-
-            this.nrrd_states.drawStartPos.set(e.offsetX, e.offsetY);
-            // this.drawingLayerMasterCtx.beginPath();
-            this.drawingCanvas.addEventListener(
-              "pointerup",
-              handleDrawingMouseUp
-            );
-            this.drawingCanvas.addEventListener(
-              "pointermove",
-              handleOnPainterMove
-            );
-          } else if (this.nrrd_states.enableCursorChoose) {
-            this.nrrd_states.cursorPageX =
-              e.offsetX / this.nrrd_states.sizeFoctor;
-            this.nrrd_states.cursorPageY =
-              e.offsetY / this.nrrd_states.sizeFoctor;
-            this.nrrd_states.isCursorSelect = true;
-            switch (this.axis) {
-              case "x":
-                this.cursorPage.x.updated = true;
-                this.cursorPage.y.updated = false;
-                this.cursorPage.z.updated = false;
-                break;
-              case "y":
-                this.cursorPage.x.updated = false;
-                this.cursorPage.y.updated = true;
-                this.cursorPage.z.updated = false;
-                break;
-              case "z":
-                this.cursorPage.x.updated = false;
-                this.cursorPage.y.updated = false;
-                this.cursorPage.z.updated = true;
-                break;
-            }
-          }
-        } else if (e.button === 2) {
-          rightclicked = true;
-
-          // let offsetX = parseInt(this.drawingCanvas.style.left);
-          // let offsetY = parseInt(this.drawingCanvas.style.top);
-          let offsetX = this.drawingCanvas.offsetLeft;
-          let offsetY = this.drawingCanvas.offsetTop;
-
-          panelMoveInnerX = e.clientX - offsetX;
-          panelMoveInnerY = e.clientY - offsetY;
-
-          this.drawingCanvas.style.cursor = "grab";
-          this.drawingCanvas.addEventListener(
-            "pointerup",
-            handleDrawingMouseUp
-          );
-          this.drawingCanvas.addEventListener(
-            "pointermove",
-            handleDragPaintPanel
-          );
-        } else {
-          return;
-        }
-      },
-      true
-    );
-
-    const clearArc = this.useEraser();
-
-    const handleOnPainterMove = (e: MouseEvent) => {
+    // drawing move
+    this.drawingPrameters.handleOnDrawingMouseMove = (e: MouseEvent) => {
       this.Is_Draw = true;
       if (Is_Painting) {
         if (this.gui_states.Eraser) {
@@ -1635,6 +1578,125 @@ export class nrrd_tools {
         }
       }
     };
+    this.drawingPrameters.handleOnDrawingMouseDown = (e: MouseEvent) => {
+      if (leftclicked || rightclicked) {
+        this.drawingCanvas.removeEventListener(
+          "pointerup",
+          this.drawingPrameters.handleOnDrawingMouseUp
+        );
+        this.drawingLayerMasterCtx.closePath();
+        return;
+      }
+
+      // when switch slice, clear previousDrawingImage
+      // todo
+      if (currentSliceIndex !== this.mainPreSlice.index) {
+        this.previousDrawingImage = this.emptyCtx.createImageData(1, 1);
+        currentSliceIndex = this.mainPreSlice.index;
+      }
+
+      // remove it when mouse click down
+      this.drawingCanvas.removeEventListener(
+        "wheel",
+        this.drawingPrameters.handleZoomWheel
+      );
+
+      if (e.button === 0) {
+        if (this.Is_Shift_Pressed) {
+          leftclicked = true;
+          lines = [];
+          Is_Painting = true;
+          this.Is_Draw = true;
+
+          if (this.gui_states.Eraser) {
+            // this.drawingCanvas.style.cursor =
+            //   "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/eraser/circular-cursor_48.png) 48 48, crosshair";
+            this.eraserUrls.length > 0
+              ? (this.drawingCanvas.style.cursor = switchEraserSize(
+                  this.gui_states.brushAndEraserSize,
+                  this.eraserUrls
+                ))
+              : (this.drawingCanvas.style.cursor = switchEraserSize(
+                  this.gui_states.brushAndEraserSize
+                ));
+          } else {
+            this.drawingCanvas.style.cursor =
+              this.nrrd_states.defaultPaintCursor;
+          }
+
+          this.nrrd_states.drawStartPos.set(e.offsetX, e.offsetY);
+          // this.drawingLayerMasterCtx.beginPath();
+          this.drawingCanvas.addEventListener(
+            "pointerup",
+            this.drawingPrameters.handleOnDrawingMouseUp
+          );
+          this.drawingCanvas.addEventListener(
+            "pointermove",
+            this.drawingPrameters.handleOnDrawingMouseMove
+          );
+        } else if (this.nrrd_states.enableCursorChoose) {
+          this.nrrd_states.cursorPageX =
+            e.offsetX / this.nrrd_states.sizeFoctor;
+          this.nrrd_states.cursorPageY =
+            e.offsetY / this.nrrd_states.sizeFoctor;
+          this.enableCrosshair();
+        } else if (this.gui_states.sphere) {
+          let mouseX = e.offsetX;
+          let mouseY = e.offsetY;
+
+          //  record mouseX,Y, and enable crosshair function
+          this.nrrd_states.sphereOrigin[this.axis] = [
+            mouseX,
+            mouseY,
+            this.nrrd_states.currentIndex,
+          ];
+          this.setUpSphereOrigins(mouseX, mouseY);
+          this.nrrd_states.cursorPageX = mouseX;
+          this.nrrd_states.cursorPageY = mouseY;
+          this.enableCrosshair();
+
+          // draw circle setup width/height for sphere canvas
+          this.drawSphere(mouseX, mouseY, this.nrrd_states.sphereRadius);
+          this.drawingCanvas.addEventListener(
+            "wheel",
+            this.drawingPrameters.handleSphereWheel,
+            true
+          );
+          this.drawingCanvas.addEventListener(
+            "pointerup",
+            this.drawingPrameters.handleOnDrawingMouseUp
+          );
+        }
+      } else if (e.button === 2) {
+        rightclicked = true;
+
+        // let offsetX = parseInt(this.drawingCanvas.style.left);
+        // let offsetY = parseInt(this.drawingCanvas.style.top);
+        let offsetX = this.drawingCanvas.offsetLeft;
+        let offsetY = this.drawingCanvas.offsetTop;
+
+        panelMoveInnerX = e.clientX - offsetX;
+        panelMoveInnerY = e.clientY - offsetY;
+
+        this.drawingCanvas.style.cursor = "grab";
+        this.drawingCanvas.addEventListener(
+          "pointerup",
+          this.drawingPrameters.handleOnDrawingMouseUp
+        );
+        this.drawingCanvas.addEventListener(
+          "pointermove",
+          this.drawingPrameters.handleOnPanMouseMove
+        );
+      } else {
+        return;
+      }
+    };
+    // disable browser right click menu
+    this.drawingCanvas.addEventListener(
+      "pointerdown",
+      this.drawingPrameters.handleOnDrawingMouseDown,
+      true
+    );
 
     const redrawPreviousImageToLabelCtx = (
       ctx: CanvasRenderingContext2D,
@@ -1676,7 +1738,7 @@ export class nrrd_tools {
       );
     };
 
-    const handleDrawingMouseUp = (e: MouseEvent) => {
+    this.drawingPrameters.handleOnDrawingMouseUp = (e: MouseEvent) => {
       if (e.button === 0) {
         if (this.Is_Shift_Pressed || Is_Painting) {
           leftclicked = false;
@@ -1686,7 +1748,7 @@ export class nrrd_tools {
 
           this.drawingCanvas.removeEventListener(
             "pointermove",
-            handleOnPainterMove
+            this.drawingPrameters.handleOnDrawingMouseMove
           );
           if (!this.gui_states.Eraser) {
             if (this.gui_states.segmentation) {
@@ -1761,19 +1823,46 @@ export class nrrd_tools {
             ].push(image);
             this.undoArray.push(undoObj);
           }
-          console.log("hghg");
-
           // add wheel after pointer up
-          this.drawingCanvas.addEventListener("wheel", this.handleWheelMove, {
-            passive: false,
-          });
+          this.drawingCanvas.addEventListener(
+            "wheel",
+            this.drawingPrameters.handleZoomWheel,
+            {
+              passive: false,
+            }
+          );
+        } else if (
+          this.gui_states.sphere &&
+          !this.nrrd_states.enableCursorChoose
+        ) {
+          // let { ctx, canvas } = this.setCurrentLayer();
+          // let mouseX = e.offsetX;
+          // let mouseY = e.offsetY;
+
+          // plan B
+          // findout all index in the sphere radius range in Axial view
+          if (this.nrrd_states.spherePlanB) {
+            // clear stroe images
+            this.clearStoreImages();
+            for (let i = 0; i < this.nrrd_states.sphereRadius; i++) {
+              this.drawSphereOnEachViews(i, "x");
+              this.drawSphereOnEachViews(i, "y");
+              this.drawSphereOnEachViews(i, "z");
+            }
+          }
+
+          this.drawingCanvas.removeEventListener(
+            "wheel",
+            this.drawingPrameters.handleSphereWheel,
+            true
+          );
         }
       } else if (e.button === 2) {
         rightclicked = false;
         this.drawingCanvas.style.cursor = "grab";
         this.drawingCanvas.removeEventListener(
           "pointermove",
-          handleDragPaintPanel
+          this.drawingPrameters.handleOnPanMouseMove
         );
       } else {
         return;
@@ -1792,7 +1881,12 @@ export class nrrd_tools {
         this.drawingLayerMasterCtx.closePath();
         this.drawingCanvas.removeEventListener(
           "pointermove",
-          handleOnPainterMove
+          this.drawingPrameters.handleOnDrawingMouseMove
+        );
+        this.drawingCanvas.removeEventListener(
+          "wheel",
+          this.drawingPrameters.handleSphereWheel,
+          true
         );
       }
       if (rightclicked) {
@@ -1800,7 +1894,7 @@ export class nrrd_tools {
         this.drawingCanvas.style.cursor = "grab";
         this.drawingCanvas.removeEventListener(
           "pointermove",
-          handleDragPaintPanel
+          this.drawingPrameters.handleOnPanMouseMove
         );
       }
 
@@ -1885,6 +1979,65 @@ export class nrrd_tools {
     });
   }
 
+  private enableCrosshair() {
+    this.nrrd_states.isCursorSelect = true;
+    switch (this.axis) {
+      case "x":
+        this.cursorPage.x.updated = true;
+        this.cursorPage.y.updated = false;
+        this.cursorPage.z.updated = false;
+        break;
+      case "y":
+        this.cursorPage.x.updated = false;
+        this.cursorPage.y.updated = true;
+        this.cursorPage.z.updated = false;
+        break;
+      case "z":
+        this.cursorPage.x.updated = false;
+        this.cursorPage.y.updated = false;
+        this.cursorPage.z.updated = true;
+        break;
+    }
+  }
+
+  private setUpSphereOrigins(mouseX: number, mouseY: number) {
+    const convertCursor = (from: "x" | "y" | "z", to: "x" | "y" | "z") => {
+      const convertObj = this.convertCursorPoint(
+        from,
+        to,
+        mouseX,
+        mouseY,
+        this.nrrd_states.currentIndex
+      ) as convertObjType;
+      return {
+        convertCursorNumX: convertObj?.convertCursorNumX,
+        convertCursorNumY: convertObj?.convertCursorNumY,
+        currentIndex: convertObj?.currentIndex,
+      };
+    };
+
+    const axisConversions = {
+      x: { axisTo1: "y", axisTo2: "z" },
+      y: { axisTo1: "z", axisTo2: "x" },
+      z: { axisTo1: "x", axisTo2: "y" },
+    };
+
+    const { axisTo1, axisTo2 } = axisConversions[this.axis] as {
+      axisTo1: "x" | "y" | "z";
+      axisTo2: "x" | "y" | "z";
+    };
+    this.nrrd_states.sphereOrigin[axisTo1] = [
+      convertCursor(this.axis, axisTo1).convertCursorNumX,
+      convertCursor(this.axis, axisTo1).convertCursorNumY,
+      convertCursor(this.axis, axisTo1).currentIndex,
+    ];
+    this.nrrd_states.sphereOrigin[axisTo2] = [
+      convertCursor(this.axis, axisTo2).convertCursorNumX,
+      convertCursor(this.axis, axisTo2).convertCursorNumY,
+      convertCursor(this.axis, axisTo2).currentIndex,
+    ];
+  }
+
   private drawLine = (x1: number, y1: number, x2: number, y2: number) => {
     this.drawingCtx.beginPath();
     this.drawingCtx.moveTo(x1, y1);
@@ -1892,6 +2045,71 @@ export class nrrd_tools {
     this.drawingCtx.strokeStyle = this.gui_states.color;
     this.drawingCtx.stroke();
   };
+
+  // for sphere
+
+  private drawSphereOnEachViews(decay: number, axis: "x" | "y" | "z") {
+    // init sphere canvas width and height
+    this.setSphereCanvasSize(axis);
+
+    const mouseX = this.nrrd_states.sphereOrigin[axis][0];
+    const mouseY = this.nrrd_states.sphereOrigin[axis][1];
+    const originIndex = this.nrrd_states.sphereOrigin[axis][2];
+    const preIndex = originIndex - decay;
+    const nextIndex = originIndex + decay;
+    const ctx = this.drawingSphereCtx;
+    const canvas = this.drawingSphereCanvas;
+    // if (
+    //   preIndex < this.nrrd_states.minIndex ||
+    //   nextIndex > this.nrrd_states.maxIndex
+    // )
+    //   return;
+    if (preIndex === nextIndex) {
+      this.drawSphereCore(ctx, mouseX, mouseY, this.nrrd_states.sphereRadius);
+      this.storeSphereImages(preIndex, axis);
+    } else {
+      this.drawSphereCore(
+        ctx,
+        mouseX,
+        mouseY,
+        this.nrrd_states.sphereRadius - decay
+      );
+      this.drawImageOnEmptyImage(canvas);
+      this.storeSphereImages(preIndex, axis);
+      this.storeSphereImages(nextIndex, axis);
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  private drawSphereCore(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radius: number
+  ) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius * this.nrrd_states.sizeFoctor, 0, 2 * Math.PI);
+    ctx.fillStyle = this.gui_states.fillColor;
+    ctx.fill();
+    ctx.closePath();
+  }
+
+  private drawSphere(mouseX: number, mouseY: number, radius: number) {
+    // clear canvas
+    this.drawingSphereCanvas.width = this.drawingCanvasLayerMaster.width;
+    this.drawingSphereCanvas.height = this.drawingCanvasLayerMaster.height;
+    const canvas = this.drawingSphereCanvas;
+    const ctx = this.drawingSphereCtx;
+    this.drawingLayerMasterCtx.clearRect(0, 0, canvas.width, canvas.height);
+    this.drawSphereCore(ctx, mouseX, mouseY, radius);
+    this.drawingLayerMasterCtx.drawImage(
+      canvas,
+      0,
+      0,
+      this.nrrd_states.changedWidth,
+      this.nrrd_states.changedHeight
+    );
+  }
 
   // need to update
   private undoLastPainting() {
@@ -1971,11 +2189,40 @@ export class nrrd_tools {
     });
   }
 
-  private configMouseWheel(
+  // drawing canvas mouse shpere wheel
+  private configMouseSphereWheel() {
+    const sphereEvent = (e: WheelEvent) => {
+      e.preventDefault();
+
+      if (e.deltaY < 0) {
+        this.nrrd_states.sphereRadius += 1;
+      } else {
+        this.nrrd_states.sphereRadius -= 1;
+      }
+      // limited the radius max and min
+      this.nrrd_states.sphereRadius = Math.max(
+        1,
+        Math.min(this.nrrd_states.sphereRadius, 50)
+      );
+      console.log(
+        this.nrrd_states.sphereOrigin[this.axis][0],
+        this.nrrd_states.sphereOrigin[this.axis][1]
+      );
+
+      // get mouse position
+      const mouseX = this.nrrd_states.sphereOrigin[this.axis][0];
+      const mouseY = this.nrrd_states.sphereOrigin[this.axis][1];
+      this.drawSphere(mouseX, mouseY, this.nrrd_states.sphereRadius);
+    };
+    return sphereEvent;
+  }
+
+  // drawing canvas mouse zoom wheel
+  private configMouseZoomWheel(
     controls?: Copper3dTrackballControls | TrackballControls | OrbitControls
   ) {
     let moveDistance = 1;
-    const handleWheelMove = (e: WheelEvent) => {
+    const handleZoomWheelMove = (e: WheelEvent) => {
       if (this.Is_Shift_Pressed) {
         return;
       }
@@ -2019,7 +2266,7 @@ export class nrrd_tools {
       }
       this.nrrd_states.sizeFoctor = moveDistance;
     };
-    return handleWheelMove;
+    return handleZoomWheelMove;
   }
 
   private useEraser() {
@@ -2388,19 +2635,35 @@ export class nrrd_tools {
     }
   }
 
+  private drawImageOnEmptyImage(canvas: HTMLCanvasElement) {
+    this.emptyCtx.drawImage(
+      canvas,
+      0,
+      0,
+      this.emptyCanvas.width,
+      this.emptyCanvas.height
+    );
+  }
+
+  private storeSphereImages(index: number, axis: "x" | "y" | "z") {
+    this.setEmptyCanvasSize(axis);
+    this.drawImageOnEmptyImage(this.drawingSphereCanvas);
+    let imageData = this.emptyCtx.getImageData(
+      0,
+      0,
+      this.emptyCanvas.width,
+      this.emptyCanvas.height
+    );
+    this.storeImageToAxis(index, this.paintImages, imageData, axis);
+  }
+
   private storeAllImages(index: number, label: string) {
     // const image: HTMLImageElement = new Image();
 
     // resize the drawing image data
-    if (!this.nrrd_states.loadMaskJson) {
+    if (!this.nrrd_states.loadMaskJson && !this.gui_states.sphere) {
       this.setEmptyCanvasSize();
-      this.emptyCtx.drawImage(
-        this.drawingCanvasLayerMaster,
-        0,
-        0,
-        this.emptyCanvas.width,
-        this.emptyCanvas.height
-      );
+      this.drawImageOnEmptyImage(this.drawingCanvasLayerMaster);
     }
 
     let imageData = this.emptyCtx.getImageData(
@@ -2564,7 +2827,7 @@ export class nrrd_tools {
     }
 
     this.storeImageToAxis(index, this.paintImages, imageData);
-    if (!this.nrrd_states.loadMaskJson) {
+    if (!this.nrrd_states.loadMaskJson && !this.gui_states.sphere) {
       this.storeEachLayerImage(index, label);
     }
   }
@@ -2572,7 +2835,8 @@ export class nrrd_tools {
   private storeImageToAxis(
     index: number,
     paintedImages: paintImagesType,
-    imageData: ImageData
+    imageData: ImageData,
+    axis?: "x" | "y" | "z"
   ) {
     let temp: paintImageType = {
       index,
@@ -2580,7 +2844,7 @@ export class nrrd_tools {
     };
 
     let drawedImage: paintImageType;
-    switch (this.axis) {
+    switch (!!axis ? axis : this.axis) {
       case "x":
         drawedImage = this.filterDrawedImage("x", index, paintedImages);
         drawedImage
@@ -2609,13 +2873,7 @@ export class nrrd_tools {
   ) {
     if (!this.nrrd_states.loadMaskJson) {
       this.setEmptyCanvasSize();
-      this.emptyCtx.drawImage(
-        canvas,
-        0,
-        0,
-        this.emptyCanvas.width,
-        this.emptyCanvas.height
-      );
+      this.drawImageOnEmptyImage(canvas);
     }
     const imageData = this.emptyCtx.getImageData(
       0,
@@ -2760,8 +3018,8 @@ export class nrrd_tools {
   }
 
   // set the empty canvas width and height, to reduce duplicate codes
-  private setEmptyCanvasSize() {
-    switch (this.axis) {
+  private setEmptyCanvasSize(axis?: "x" | "y" | "z") {
+    switch (!!axis ? axis : this.axis) {
       case "x":
         this.emptyCanvas.width = this.nrrd_states.nrrd_z_pixel;
         this.emptyCanvas.height = this.nrrd_states.nrrd_y_pixel;
@@ -2773,6 +3031,22 @@ export class nrrd_tools {
       case "z":
         this.emptyCanvas.width = this.nrrd_states.nrrd_x_pixel;
         this.emptyCanvas.height = this.nrrd_states.nrrd_y_pixel;
+        break;
+    }
+  }
+  private setSphereCanvasSize(axis?: "x" | "y" | "z") {
+    switch (!!axis ? axis : this.axis) {
+      case "x":
+        this.drawingSphereCanvas.width = this.nrrd_states.nrrd_z_mm;
+        this.drawingSphereCanvas.height = this.nrrd_states.nrrd_y_mm;
+        break;
+      case "y":
+        this.drawingSphereCanvas.width = this.nrrd_states.nrrd_x_mm;
+        this.drawingSphereCanvas.height = this.nrrd_states.nrrd_z_mm;
+        break;
+      case "z":
+        this.drawingSphereCanvas.width = this.nrrd_states.nrrd_x_mm;
+        this.drawingSphereCanvas.height = this.nrrd_states.nrrd_y_mm;
         break;
     }
   }
@@ -2915,72 +3189,64 @@ export class nrrd_tools {
       this.removeGuiFolderChilden(modeFolder);
 
     modeFolder.open();
-    const actionsFolder = modeFolder.addFolder("Default Actions");
-
-    actionsFolder
-      .add(this.gui_states, "label", ["label1", "label2", "label3"])
-      .onChange((val) => {
-        if (val === "label1") {
-          this.gui_states.fillColor = "#00ff00";
-          this.gui_states.brushColor = "#00ff00";
-        } else if (val === "label2") {
-          this.gui_states.fillColor = "#ff0000";
-          this.gui_states.brushColor = "#ff0000";
-        } else if (val === "label3") {
-          this.gui_states.fillColor = "#0000ff";
-          this.gui_states.brushColor = "#0000ff";
-        }
-      });
-
-    actionsFolder
-      .add(this.gui_states, "cursor", ["crosshair", "pencil", "dot"])
-      .name("cursor icons")
-      .onChange((value) => {
-        if (value === "crosshair") {
-          this.nrrd_states.defaultPaintCursor = "crosshair";
-        }
-        if (value === "pencil") {
-          this.nrrd_states.defaultPaintCursor =
-            "url(https://raw.githubusercontent.com/LinkunGao/copper3d_icons/main/icons/pencil-black.svg), auto";
-        }
-        if (value === "dot") {
-          this.nrrd_states.defaultPaintCursor =
-            "url(https://raw.githubusercontent.com/LinkunGao/copper3d-datasets/main/icons/dot.svg) 12 12,auto";
-        }
-        this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
-      });
-    actionsFolder
-      .add(this.gui_states, "mainAreaSize")
-      .name("zoom")
-      .min(1)
-      .max(8)
-      .onFinishChange((factor) => {
-        this.resetPaintArea();
-        this.nrrd_states.sizeFoctor = factor;
-        this.resizePaintArea(factor);
-      });
-    actionsFolder.add(this.gui_states, "resetZoom");
+    const actionsFolder = modeFolder.addFolder("DefaultActions");
     actionsFolder
       .add(this.gui_states, "globalAlpha")
-      .name("opacity")
+      .name("Opacity")
       .min(0.1)
       .max(1)
       .step(0.01);
-    actionsFolder.add(this.gui_states, "segmentation").name("Pencil");
+    actionsFolder
+      .add(this.gui_states, "segmentation")
+      .name("Pencil")
+      .onChange(() => {
+        if (this.gui_states.segmentation) {
+          // add canvas brush circle move event listeners
+          this.drawingCanvas.removeEventListener(
+            "mouseover",
+            this.drawingPrameters.handleOnDrawingBrushCricleMove
+          );
+          this.drawingCanvas.removeEventListener(
+            "mouseout",
+            this.drawingPrameters.handleOnDrawingBrushCricleMove
+          );
+        } else {
+          // add canvas brush circle move event listeners
+          this.drawingCanvas.addEventListener(
+            "mouseover",
+            this.drawingPrameters.handleOnDrawingBrushCricleMove
+          );
+          this.drawingCanvas.addEventListener(
+            "mouseout",
+            this.drawingPrameters.handleOnDrawingBrushCricleMove
+          );
+        }
+      });
     actionsFolder
       .add(this.gui_states, "sphere")
       .name("Sphere")
       .onChange(() => {
         if (this.gui_states.sphere) {
-          this.drawingCanvas.removeEventListener("wheel", this.handleWheelMove);
+          this.drawingCanvas.removeEventListener(
+            "wheel",
+            this.drawingPrameters.handleZoomWheel
+          );
           this.removeDragMode();
         } else {
-          this.drawingCanvas.addEventListener("wheel", this.handleWheelMove);
+          this.drawingCanvas.addEventListener(
+            "wheel",
+            this.drawingPrameters.handleZoomWheel
+          );
           this.configDragMode();
+
+          // clear canvas
+          this.clearPaint();
+          this.clearStoreImages();
         }
       });
     actionsFolder
       .add(this.gui_states, "brushAndEraserSize")
+      .name("BrushAndEraserSize")
       .min(5)
       .max(50)
       .step(1)
@@ -3012,9 +3278,10 @@ export class nrrd_tools {
         this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
       }
     });
-    actionsFolder.add(this.gui_states, "clear");
-    actionsFolder.add(this.gui_states, "clearAll");
-    actionsFolder.add(this.gui_states, "undo");
+    actionsFolder.add(this.gui_states, "clear").name("Clear");
+    actionsFolder.add(this.gui_states, "clearAll").name("ClearAll");
+    actionsFolder.add(this.gui_states, "undo").name("Undo");
+    actionsFolder.add(this.gui_states, "resetZoom").name("ResetZoom");
 
     actionsFolder
       .add(
@@ -3024,7 +3291,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Image contrast")
+      .name("ImageContrast")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "windowHigh");
@@ -3034,33 +3301,73 @@ export class nrrd_tools {
         this.nrrd_states.readyToUpdate = true;
       });
 
-    actionsFolder.add(this.gui_states, "exportMarks");
+    const advanceFolder = modeFolder.addFolder("AdvanceSettings");
 
-    const advanceFolder = modeFolder.addFolder("Advance settings");
+    advanceFolder
+      .add(this.gui_states, "label", ["label1", "label2", "label3"])
+      .name("Label")
+      .onChange((val) => {
+        if (val === "label1") {
+          this.gui_states.fillColor = "#00ff00";
+          this.gui_states.brushColor = "#00ff00";
+        } else if (val === "label2") {
+          this.gui_states.fillColor = "#ff0000";
+          this.gui_states.brushColor = "#ff0000";
+        } else if (val === "label3") {
+          this.gui_states.fillColor = "#0000ff";
+          this.gui_states.brushColor = "#0000ff";
+        }
+      });
+
+    advanceFolder
+      .add(this.gui_states, "cursor", ["crosshair", "pencil", "dot"])
+      .name("CursorIcons")
+      .onChange((value) => {
+        this.nrrd_states.defaultPaintCursor = switchPencilIcon(
+          value,
+          this.pencilUrls
+        );
+        this.drawingCanvas.style.cursor = this.nrrd_states.defaultPaintCursor;
+      });
+
+    advanceFolder
+      .add(this.gui_states, "mainAreaSize")
+      .name("Zoom")
+      .min(1)
+      .max(8)
+      .onFinishChange((factor) => {
+        this.resetPaintArea();
+        this.nrrd_states.sizeFoctor = factor;
+        this.resizePaintArea(factor);
+      });
 
     advanceFolder
       .add(this.gui_states, "dragSensitivity")
+      .name("DragSensitivity")
       .min(1)
       .max(this.nrrd_states.Max_sensitive)
       .step(1);
 
-    const segmentationFolder = advanceFolder.addFolder("Pencil settings");
+    const segmentationFolder = advanceFolder.addFolder("PencilSettings");
 
     segmentationFolder
       .add(this.gui_states, "lineWidth")
-      .name("outerLineWidth")
+      .name("OuterLineWidth")
       .min(1.7)
       .max(3)
       .step(0.01);
-    segmentationFolder.addColor(this.gui_states, "color");
-    segmentationFolder.addColor(this.gui_states, "fillColor");
-    const bushFolder = advanceFolder.addFolder("Brush settings");
-    bushFolder.addColor(this.gui_states, "brushColor");
+    segmentationFolder.addColor(this.gui_states, "color").name("Color");
+    segmentationFolder.addColor(this.gui_states, "fillColor").name("FillColor");
+    const bushFolder = advanceFolder.addFolder("BrushSettings");
+    bushFolder.addColor(this.gui_states, "brushColor").name("BrushColor");
     // modeFolder.add(this.stateMode, "EraserSize").min(1).max(50).step(1);
+    const maskFolder = advanceFolder.addFolder("MaskDownload");
+    maskFolder
+      .add(this.gui_states, "downloadCurrentMask")
+      .name("DownloadCurrentMask");
+    maskFolder.add(this.gui_states, "exportMarks").name("ExportMask");
 
-    advanceFolder.add(this.gui_states, "downloadCurrentMask");
-
-    const contrastFolder = advanceFolder.addFolder("contrast advance settings");
+    const contrastFolder = advanceFolder.addFolder("ContrastAdvanceSettings");
     contrastFolder
       .add(
         this.mainPreSlice.volume,
@@ -3069,7 +3376,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Lower Threshold")
+      .name("LowerThreshold")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "lowerThreshold");
@@ -3086,7 +3393,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Upper Threshold")
+      .name("UpperThreshold")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "upperThreshold");
@@ -3103,7 +3410,7 @@ export class nrrd_tools {
         this.mainPreSlice.volume.max,
         1
       )
-      .name("Window Low")
+      .name("WindowLow")
       .onChange((value) => {
         this.nrrd_states.readyToUpdate = false;
         this.updateSlicesContrast(value, "windowLow");
