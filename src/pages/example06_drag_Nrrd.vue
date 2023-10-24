@@ -102,27 +102,27 @@ function loadNrrd(
     gui?: GUI
   ) => {
     (gui as GUI).closed = true;
-    appRenderer.sceneInfos[0].scene.add(nrrdMesh.x);
+    appRenderer.sceneInfos[0].scene.add(nrrdMesh.x as any);
     appRenderer.sceneInfos[1].loadViewUrl("/copper3d_examples/nrrd_view.json");
     appRenderer.sceneInfos[0].setCameraPosition({ x: 300, z: 0 });
 
     sceneIn.container.onclick = (ev) => {
       const x = ev.offsetX;
       const y = ev.offsetY;
-      const a = sceneIn.pickSpecifiedModel(nrrdMesh.x, { x, y });
+      const a = sceneIn.pickSpecifiedModel(nrrdMesh.x as any, { x, y });
       console.log(a);
     };
 
-    appRenderer.sceneInfos[1].scene.add(nrrdMesh.z);
+    appRenderer.sceneInfos[1].scene.add(nrrdMesh.z as any);
 
-    nrrdTools.setSlice(nrrdSlices.z);
-    nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
-      mode: "mode0",
-      showNumber: true,
-    });
+    // nrrdTools.setSlice(nrrdSlices.z);
+    // nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
+    //   mode: "mode0",
+    //   showNumber: true,
+    // });
   };
   if (sceneIn) {
-    sceneIn?.loadNrrd(url, loadBar1, funa, opts);
+    sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
     sceneIn.loadViewUrl("/copper3d_examples/nrrd_view.json");
   }
   sceneIn.updateBackground("#18e5a7", "#000");

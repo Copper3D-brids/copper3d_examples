@@ -77,7 +77,7 @@ function loadNrrd(
     sceneIn.drawWholeNrrd(nrrdSlices);
   };
   if (sceneIn) {
-    sceneIn.loadNrrd(url, loadBar1, funa, opts);
+    sceneIn.loadNrrd(url, loadBar1, false, funa, opts);
     sceneIn.loadViewUrl("/copper3d_examples/nrrd_view.json");
   }
   sceneIn.updateBackground("#18e5a7", "#000");
