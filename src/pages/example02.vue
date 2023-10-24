@@ -94,14 +94,10 @@ function loadModel(url: string, name: string) {
 }
 function getPosition(event: MouseEvent) {
   console.log(scene);
-  const pos = Copper.convertScreenPosto3DPos(
-    bg,
-    scene?.camera as THREE.PerspectiveCamera,
-    {
-      x: event.clientX,
-      y: event.clientY,
-    }
-  );
+  const pos = Copper.convertScreenPosto3DPos(bg, scene?.camera as any, {
+    x: event.clientX,
+    y: event.clientY,
+  });
   console.log(pos);
 }
 </script>

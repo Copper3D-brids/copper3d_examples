@@ -167,10 +167,7 @@ function loadModel(url: string, name: string) {
 
 function sharePosition(scene: Copper.copperScene) {
   const target = [-0.9551143646240234, 2.91867446899414, 2.7563438415527344];
-  viewpoint = scene.setViewPoint(
-    scene.camera as THREE.PerspectiveCamera,
-    target
-  );
+  viewpoint = scene.setViewPoint(scene.camera as any, target);
 }
 
 function reset() {
@@ -184,14 +181,10 @@ function reset() {
 }
 function getPosition(event: MouseEvent) {
   setTimeout(() => {
-    const pos = Copper.convertScreenPosto3DPos(
-      bg,
-      scene?.camera as THREE.PerspectiveCamera,
-      {
-        x: event.clientX,
-        y: event.clientY,
-      }
-    );
+    const pos = Copper.convertScreenPosto3DPos(bg, scene?.camera as any, {
+      x: event.clientX,
+      y: event.clientY,
+    });
     console.log(pos);
   }, 1000);
 }
