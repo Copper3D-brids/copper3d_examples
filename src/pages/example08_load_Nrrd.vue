@@ -18,14 +18,14 @@
 import { GUI } from "dat.gui";
 import * as Copper from "copper3d";
 // import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import "copper3d/dist/css/style.css";
 import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 
 let refs = null;
 let bg: HTMLDivElement = ref<any>(null);
 let appRenderer: Copper.copperMSceneRenderer;
 let c_gui: HTMLDivElement = ref<any>(null);
-let nrrdTools: Copper.nrrd_tools;
+let nrrdTools: Copper.NrrdTools;
 let loadBar1: Copper.loadingBarType;
 let loadBar2: Copper.loadingBarType;
 
@@ -36,7 +36,7 @@ onMounted(() => {
   c_gui = refs.c_gui;
 
   appRenderer = new Copper.copperMSceneRenderer(bg, 2);
-  nrrdTools = new Copper.nrrd_tools(appRenderer.sceneInfos[0].container);
+  nrrdTools = new Copper.NrrdTools(appRenderer.sceneInfos[0].container);
   loadBar1 = Copper.loading();
   loadBar2 = Copper.loading();
 

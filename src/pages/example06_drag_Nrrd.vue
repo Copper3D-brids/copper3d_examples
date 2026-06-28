@@ -9,8 +9,8 @@
 <script setup lang="ts">
 import { GUI } from "dat.gui";
 // import * as Copper from "copper3d";
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "copper3d";
+import "copper3d/dist/css/style.css";
 import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
 
@@ -18,7 +18,7 @@ let refs = null;
 let bg: HTMLDivElement = ref<any>(null);
 let appRenderer: Copper.copperMSceneRenderer;
 let c_gui: HTMLDivElement = ref<any>(null);
-let nrrdTools: Copper.nrrd_tools;
+let nrrdTools: Copper.NrrdTools;
 let loadBar1: Copper.loadingBarType;
 let loadBar2: Copper.loadingBarType;
 
@@ -29,7 +29,7 @@ onMounted(() => {
   c_gui = refs.c_gui;
 
   appRenderer = new Copper.copperMSceneRenderer(bg, 2);
-  nrrdTools = new Copper.nrrd_tools(appRenderer.sceneInfos[0].container);
+  nrrdTools = new Copper.NrrdTools(appRenderer.sceneInfos[0].container);
   loadBar1 = Copper.loading();
   loadBar2 = Copper.loading();
 
@@ -102,27 +102,27 @@ function loadNrrd(
     gui?: GUI
   ) => {
     (gui as GUI).closed = true;
-    appRenderer.sceneInfos[0].scene.add(nrrdMesh.x);
+    appRenderer.sceneInfos[0].scene.add(nrrdMesh.x as any);
     appRenderer.sceneInfos[1].loadViewUrl("/copper3d_examples/nrrd_view.json");
     appRenderer.sceneInfos[0].setCameraPosition({ x: 300, z: 0 });
 
     sceneIn.container.onclick = (ev) => {
       const x = ev.offsetX;
       const y = ev.offsetY;
-      const a = sceneIn.pickSpecifiedModel(nrrdMesh.x, { x, y });
+      const a = sceneIn.pickSpecifiedModel(nrrdMesh.x as any, { x, y });
       console.log(a);
     };
 
-    appRenderer.sceneInfos[1].scene.add(nrrdMesh.z);
+    appRenderer.sceneInfos[1].scene.add(nrrdMesh.z as any);
 
-    nrrdTools.setSlice(nrrdSlices.z);
-    nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
-      mode: "mode0",
-      showNumber: true,
-    });
+    // nrrdTools.setSlice(nrrdSlices.z);
+    // nrrdTools.dragImageWithMode(sceneIn.controls as TrackballControls, {
+    //   mode: "mode0",
+    //   showNumber: true,
+    // });
   };
   if (sceneIn) {
-    sceneIn?.loadNrrd(url, loadBar1, funa, opts);
+    sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
     sceneIn.loadViewUrl("/copper3d_examples/nrrd_view.json");
   }
   sceneIn.updateBackground("#18e5a7", "#000");

@@ -129,9 +129,10 @@ onMounted(() => {
   loadBar = Copper.loading();
   appRenderer = new Copper.copperRenderer(bg, {
     guiOpen: true,
-    camera: true,
-    performance: true,
-    light: true,
+    cameraGui: true,
+    performanceGui: true,
+    lightGui: true,
+    controls: "copper3d",
   });
   // appRenderer.gui.closed = true;
   appRenderer.closeGui();
@@ -148,14 +149,18 @@ onMounted(() => {
   defaultScene.createDemoMesh();
 
   appRenderer.animate();
+  // appRenderer.fpsCap.fps = 30;
 });
 function loadModel(url: string, name: string) {
+  console.log("loadModel");
+
   if (scene) {
     sharePosition(scene);
   }
   scene = appRenderer.getSceneByName(name) as Copper.copperScene;
   if (scene == undefined) {
     scene = appRenderer.createScene(name);
+
     allScenes.push(scene as Copper.copperScene);
     const funa = () => {
       // window.location.replace(
@@ -172,7 +177,14 @@ function loadModel(url: string, name: string) {
     if (scene) {
       appRenderer.setCurrentScene(scene);
 
-      scene.controls.staticMoving = true;
+      (scene.controls as Copper.Copper3dTrackballControls).staticMoving = true;
+      scene.controls.panSpeed = 3;
+      scene.controls.rotateSpeed = 3;
+      scene.controls.mouseButtons = {
+        LEFT: -1,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.ROTATE,
+      };
 
       if (name === "test") {
         scene.loadGltf(url, (content) => {
@@ -252,8 +264,8 @@ function loadModel(url: string, name: string) {
       // scene.directionalLight.color = new THREE.Color(0x18ef06);
       scene.updateBackground("#5454ad", "#18e5a7");
     }
-    // Copper.setHDRFilePath("/copper3d_examples/venice_sunset_1k.hdr");
-    Copper.setHDRFilePath("/copper3d_examples/footprint_court_2k.hdr");
+    Copper.setHDRFilePath("/copper3d_examples/venice_sunset_1k.hdr");
+    // Copper.setHDRFilePath("/copper3d_examples/footprint_court_2k.hdr");
     // Copper.setHDRFilePath("/copper3d_examples/sandsloot_1k.hdr");
     appRenderer.updateEnvironment();
   } else {

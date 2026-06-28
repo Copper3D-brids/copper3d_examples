@@ -27,8 +27,8 @@
 <script setup lang="ts">
 // import * as Copper from "copper3d";
 import { GUI } from "dat.gui";
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "copper3d";
+import "copper3d/dist/css/style.css";
 import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 
 // import * as kiwrious from "copper3d_plugin_heart_k";

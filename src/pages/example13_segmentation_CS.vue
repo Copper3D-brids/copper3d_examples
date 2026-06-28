@@ -1,5 +1,6 @@
 <template>
   <!-- <div id="bg" ref="base_container" @click="getPosition"> -->
+  <!-- <button @click="testBack">click</button> -->
   <div id="bg" ref="base_container">
     <div ref="c_gui_ref" id="gui"></div>
     <div ref="nrrd_c_ref" class="nrrd_c"></div>
@@ -56,7 +57,7 @@ let pre_slices = ref();
 
 let gui = new GUI({ width: 300, autoPlace: false });
 let selectedContrastFolder: GUI;
-let nrrdTools: Copper.nrrd_tools;
+let nrrdTools: Copper.NrrdTools;
 let loadBarMain: Copper.loadingBarType;
 let urls: Array<string> = [];
 let timer: any;
@@ -84,7 +85,7 @@ onMounted(() => {
   appRenderer = new Copper.copperRenderer(bg);
   loadBarMain = Copper.loading();
 
-  nrrdTools = new Copper.nrrd_tools(nrrd_c);
+  nrrdTools = new Copper.NrrdTools(nrrd_c);
   nrrd_c.appendChild(loadBarMain.loadingContainer);
 
   // nrrdTools.setContrastDisplayInMainArea(5);
@@ -99,6 +100,25 @@ onMounted(() => {
   //   "/copper3d_examples/nrrd/segmentation/ax dyn 4th pass.nrrd",
   // ];
 
+  const socket = new WebSocket("ws://127.0.0.1:8000/ws");
+  socket.onopen = function (e) {
+    console.log("[open] Connection established");
+    console.log("Sending to server");
+    socket.send("My name is John");
+  };
+
+  // Listen for incoming messages from the server
+  socket.onmessage = function (event) {
+    console.log(event.data);
+
+    // const jsonData = JSON.parse(event.data);
+    // // do something with the JSON object
+    // console.log("received: data");
+
+    // console.log(jsonData.name);
+    // console.log(jsonData.age);
+  };
+
   loadModel("nrrd_tools");
   document.addEventListener("keydown", (e) => {
     if (e.code === "KeyF") {
@@ -112,6 +132,10 @@ onMounted(() => {
   selectedContrastFolder = gui.addFolder("select display contrast");
   appRenderer.animate();
 });
+
+const testBack = () => {
+  axios.get("http://127.0.0.1:8000/convert");
+};
 
 const readyToLoad = (urlsArray: Array<string>) => {
   fileNum.value = urlsArray.length;
@@ -129,7 +153,7 @@ const onCloseDialog = (flag: boolean) => {
 const resetSlicesOrientation = (axis: "x" | "y" | "z") => {
   nrrdTools.setSliceOrientation(axis);
   max.value = nrrdTools.getMaxSliceNum()[1];
-  const { currentIndex, contrastIndex } =
+  const { currentSliceIndex: currentIndex, contrastIndex } =
     nrrdTools.getCurrentSlicesNumAndContrastNum();
   immediateSliceNum.value = currentIndex;
   contrastNum.value = contrastIndex;
@@ -185,20 +209,22 @@ worker.onmessage = function (ev: MessageEvent) {
   console.log("send");
 };
 
-const sendMaskToBackend = () => {
-  timer = setInterval(async () => {
-    const masksData = nrrdTools.paintImages.z;
-    const dimensions = nrrdTools.getCurrentImageDimension();
-    const len = masksData.length;
-    const width = dimensions[0];
-    const height = dimensions[1];
-    if (len > 0) {
-      worker.postMessage({ masksData, len, width, height });
-      // const masks = await restructData(masksData, len, width, height);
-      // console.log("a");
-    }
-  }, 60000);
-};
+// NOTE: Disabled during the copper3d@3.x migration. The old `nrrdTools.paintImages.z`
+// (an array of per-slice IPaintImage) was removed from the public API. To re-enable,
+// reimplement this against `nrrdTools.getMaskData()` (returns { volumes }) and adapt
+// the worker pipeline accordingly. The only caller below is already commented out.
+// const sendMaskToBackend = () => {
+//   timer = setInterval(async () => {
+//     const masksData = nrrdTools.paintImages.z;
+//     const dimensions = nrrdTools.getCurrentImageDimension();
+//     const len = masksData.length;
+//     const width = dimensions[0];
+//     const height = dimensions[1];
+//     if (len > 0) {
+//       worker.postMessage({ masksData, len, width, height });
+//     }
+//   }, 60000);
+// };
 
 const getMaskData = (image: ImageData, sliceId: number) => {
   console.log(image);
@@ -215,11 +241,9 @@ watchEffect(() => {
     if (!!timer) {
       clearInterval(timer);
     }
-    nrrdTools.clear();
     allSlices.sort((a: any, b: any) => {
       return a.order - b.order;
     });
-    nrrdTools.setShowInMainArea(true);
     nrrdTools.setAllSlices(allSlices);
     initSliceIndex.value = nrrdTools.getCurrentSliceIndex();
 
@@ -227,13 +251,14 @@ watchEffect(() => {
       immediateSliceNum.value = index;
       contrastNum.value = contrastindex;
     };
-    loadTestJsonMasks();
+    // loadTestJsonMasks();
     if (firstLoad) {
       nrrdTools.drag({
         showNumber: true,
         getSliceNum,
       });
-      nrrdTools.draw(scene as Copper.copperScene, gui, { getMaskData });
+      nrrdTools.setupGUI(gui);
+      nrrdTools.draw({ getMaskData });
 
       scene?.addPreRenderCallbackFunction(nrrdTools.start);
       // sendMaskToBackend();
@@ -259,7 +284,7 @@ watchEffect(() => {
       }
     }
 
-    nrrdTools.removeGuiFolderChilden(selectedContrastFolder);
+    Copper.removeGuiFolderChilden(selectedContrastFolder);
     for (let i = 0; i < allSlices.length; i++) {
       let name = "";
       i === 0 ? (name = "pre") : (name = "contrast" + i);
@@ -276,7 +301,7 @@ watchEffect(() => {
           max.value = maxNum;
 
           // update 1.12.19
-          const { currentIndex, contrastIndex } =
+          const { currentSliceIndex: currentIndex, contrastIndex } =
             nrrdTools.getCurrentSlicesNumAndContrastNum();
           immediateSliceNum.value = currentIndex;
           contrastNum.value = contrastIndex + 1;

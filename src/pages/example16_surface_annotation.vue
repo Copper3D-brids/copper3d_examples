@@ -116,7 +116,7 @@ import * as Copper from "copper3d";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment";
 import { onMounted, onBeforeUnmount, ref, computed, watch } from "vue";
-import type { AnnotationMode, Annotation } from "../ts/index";
+import type { AnnotationMode, Annotation } from "copper3d";
 
 const MODEL_URL = "/copper3d_examples/portal_heart/heart1.obj";
 // 三种标注的初始配色(柔和、彼此区分,且与深色场景 + teal 主色调和)。

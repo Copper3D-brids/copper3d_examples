@@ -36,8 +36,8 @@
 <script setup lang="ts">
 import { GUI } from "dat.gui";
 // import * as Copper from "copper3d";
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "copper3d";
+import "copper3d/dist/css/style.css";
 import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 
 let refs = null;
@@ -89,7 +89,7 @@ function loadModel(url: string, name: string) {
     if (scene) {
       appRenderer.setCurrentScene(scene);
 
-      scene.controls.staticMoving = true;
+      (scene.controls as Copper.Copper3dTrackballControls).staticMoving = true;
       if (name === "test") {
         scene.loadGltf(url, (content) => {
           scene &&
@@ -167,10 +167,7 @@ function loadModel(url: string, name: string) {
 
 function sharePosition(scene: Copper.copperScene) {
   const target = [-0.9551143646240234, 2.91867446899414, 2.7563438415527344];
-  viewpoint = scene.setViewPoint(
-    scene.camera as THREE.PerspectiveCamera,
-    target
-  );
+  viewpoint = scene.setViewPoint(scene.camera as any, target);
 }
 
 function reset() {
@@ -184,14 +181,10 @@ function reset() {
 }
 function getPosition(event: MouseEvent) {
   setTimeout(() => {
-    const pos = Copper.convertScreenPosto3DPos(
-      bg,
-      scene?.camera as THREE.PerspectiveCamera,
-      {
-        x: event.clientX,
-        y: event.clientY,
-      }
-    );
+    const pos = Copper.convertScreenPosto3DPos(bg, scene?.camera as any, {
+      x: event.clientX,
+      y: event.clientY,
+    });
     console.log(pos);
   }, 1000);
 }

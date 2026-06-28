@@ -9,15 +9,15 @@
 <script setup lang="ts">
 import { GUI } from "dat.gui";
 // import * as Copper from "copper3d";
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
+import * as Copper from "copper3d";
+import "copper3d/dist/css/style.css";
 import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 
 let refs = null;
 let bg: HTMLDivElement = ref<any>(null);
 let appRenderer: Copper.copperMSceneRenderer;
 let c_gui: HTMLDivElement = ref<any>(null);
-let nrrdTools: Copper.nrrd_tools;
+let nrrdTools: Copper.NrrdTools;
 let loadBar1: Copper.loadingBarType;
 
 onMounted(() => {
@@ -77,7 +77,7 @@ function loadNrrd(
     sceneIn.drawWholeNrrd(nrrdSlices);
   };
   if (sceneIn) {
-    sceneIn.loadNrrd(url, loadBar1, funa, opts);
+    sceneIn.loadNrrd(url, loadBar1, false, funa, opts);
     sceneIn.loadViewUrl("/copper3d_examples/nrrd_view.json");
   }
   sceneIn.updateBackground("#18e5a7", "#000");
