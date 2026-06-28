@@ -23,13 +23,13 @@
 </template>
 
 <script setup lang="ts">
-import * as Copper from "../ts/index";
+import * as Copper from "copper3d";
 // import * as Copper from "copper3d_visualisation";
 // import "copper3d_visualisation/dist/css/style.css";
 
 import { GUI } from "dat.gui";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
-import { getCurrentInstance, onMounted, ref, watchEffect, reactive } from "vue";
+import { getCurrentInstance, onMounted, onBeforeUnmount, ref, watchEffect, reactive } from "vue";
 import NavBar from "../components/NavBar.vue";
 import Upload from "../components/Upload.vue";
 import axios from "axios";
@@ -408,6 +408,10 @@ const loadAllNrrds = (urls: Array<string>) => {
     );
   }
 };
+
+onBeforeUnmount(() => {
+  appRenderer?.dispose();
+});
 </script>
 
 <style>

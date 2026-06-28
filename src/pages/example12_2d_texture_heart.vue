@@ -10,12 +10,12 @@
 </template>
 
 <script setup lang="ts">
-import * as Copper from "../ts/index";
+import * as Copper from "copper3d";
 // import * as Copper from "copper3d_visualisation";
 // import "copper3d_visualisation/dist/css/style.css";
 
 import { GUI } from "dat.gui";
-import { getCurrentInstance, onMounted, ref } from "vue";
+import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 let refs = null;
 let appRenderer: Copper.copperRenderer;
 
@@ -62,7 +62,8 @@ onMounted(() => {
     // urls.push(`/copper3d_examples/mri_4ch/${1}.dcm`);
     urls.push(`/copper3d_examples/vtks/one_frame/${1}.dcm`);
   }
-  loadModel(urls, "texture2d");
+  // loadModel(urls, "texture2d");
+  loadModel(['/copper3d_examples/ultrasound/case004.dcm'], "texture2d");
   appRenderer.animate();
 });
 function loadModel(urls: Array<string>, name: string) {
@@ -134,6 +135,10 @@ function minusPlayRate() {
   scene && scene.setPlayRate(playRate);
   console.log(playRate);
 }
+
+onBeforeUnmount(() => {
+  appRenderer?.dispose();
+});
 </script>
 
 <style>

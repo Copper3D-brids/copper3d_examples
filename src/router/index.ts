@@ -126,6 +126,22 @@ const routes: Array<RouteRecordRaw> = [
     component: () =>
       import(/* webpackChunkName: "example01" */ "../pages/example14.vue"),
   },
+  {
+    path: "/example15",
+    name: "Example15",
+    component: () =>
+      import(
+        /* webpackChunkName: "example01" */ "../pages/example15_mri_lv_4d.vue"
+      ),
+  },
+  {
+    path: "/example16",
+    name: "Example16",
+    component: () =>
+      import(
+        /* webpackChunkName: "example01" */ "../pages/example16_surface_annotation.vue"
+      ),
+  },
 ];
 
 const router = createRouter({

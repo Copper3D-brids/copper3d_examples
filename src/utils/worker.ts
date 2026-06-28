@@ -1,4 +1,4 @@
-import * as Copper from "../ts/index";
+import * as Copper from "copper3d";
 
 addEventListener("message", (event) => {
   const data = event.data;
