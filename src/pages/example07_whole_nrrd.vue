@@ -8,16 +8,16 @@
 
 <script setup lang="ts">
 import { GUI } from "dat.gui";
-// import * as Copper from "../ts/index";
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
-import { getCurrentInstance, onMounted, ref } from "vue";
+// import * as Copper from "copper3d";
+import * as Copper from "copper3d";
+import "copper3d/dist/css/style.css";
+import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 
 let refs = null;
 let bg: HTMLDivElement = ref<any>(null);
 let appRenderer: Copper.copperMSceneRenderer;
 let c_gui: HTMLDivElement = ref<any>(null);
-let nrrdTools: Copper.nrrd_tools;
+let nrrdTools: Copper.NrrdTools;
 let loadBar1: Copper.loadingBarType;
 
 onMounted(() => {
@@ -84,6 +84,10 @@ function loadNrrd(
   Copper.setHDRFilePath("venice_sunset_1k.hdr");
   appRenderer.updateEnvironment(sceneIn);
 }
+
+onBeforeUnmount(() => {
+  appRenderer?.dispose();
+});
 </script>
 
 <style lang="scss">

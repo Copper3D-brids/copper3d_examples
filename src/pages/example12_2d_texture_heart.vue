@@ -10,12 +10,12 @@
 </template>
 
 <script setup lang="ts">
-import * as Copper from "../ts/index";
+import * as Copper from "copper3d";
 // import * as Copper from "copper3d_visualisation";
 // import "copper3d_visualisation/dist/css/style.css";
 
 import { GUI } from "dat.gui";
-import { getCurrentInstance, onMounted, ref } from "vue";
+import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 let refs = null;
 let appRenderer: Copper.copperRenderer;
 
@@ -39,7 +39,6 @@ onMounted(() => {
     performance: true,
     light: true,
     alpha: true,
-    logarithmicDepthBuffer: true,
   });
   appRenderer.closeGui();
 
@@ -49,21 +48,22 @@ onMounted(() => {
     }
   });
   const urls = [];
-  for (let i = 1; i <= 32; i++) {
-    urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
-  }
-  // for (let i = 0; i <= 0; i++) {
-  //   // let j = "";
-  //   // if (i < 10) {
-  //   //   j = "00" + i;
-  //   // } else if (10 <= i && i < 100) {
-  //   //   j = "0" + i;
-  //   // }
-  //   // if (i != 132) urls.push(`/copper3d_examples/vtks/cardiohance_023/${i}.dcm`);
-  //   // urls.push(`/copper3d_examples/mri_4ch/${1}.dcm`);
-  //   urls.push(`/copper3d_examples/vtks/one_frame/${1}.dcm`);
+  // for (let i = 1; i <= 32; i++) {
+  //   urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
   // }
-  loadModel(urls, "texture2d");
+  for (let i = 0; i <= 0; i++) {
+    // let j = "";
+    // if (i < 10) {
+    //   j = "00" + i;
+    // } else if (10 <= i && i < 100) {
+    //   j = "0" + i;
+    // }
+    // if (i != 132) urls.push(`/copper3d_examples/vtks/cardiohance_023/${i}.dcm`);
+    // urls.push(`/copper3d_examples/mri_4ch/${1}.dcm`);
+    urls.push(`/copper3d_examples/vtks/one_frame/${1}.dcm`);
+  }
+  // loadModel(urls, "texture2d");
+  loadModel(['/copper3d_examples/ultrasound/case004.dcm'], "texture2d");
   appRenderer.animate();
 });
 function loadModel(urls: Array<string>, name: string) {
@@ -101,57 +101,18 @@ function loadModel(urls: Array<string>, name: string) {
         // content.rotation.set(-12.9, 3.6, 3);
         // content.scale.set(3.2, 3.2, 3.2);
         // content.position.set(7.3, 4.3, -0.2);
-        gui
-          .add(content.rotation as any, "x")
-          .min(-20)
-          .max(20)
-          .step(0.1);
-        gui
-          .add(content.rotation as any, "y")
-          .min(-20)
-          .max(20)
-          .step(0.1);
-        gui
-          .add(content.rotation as any, "z")
-          .min(-20)
-          .max(20)
-          .step(0.1);
-        gui
-          .add(content.scale as any, "x")
-          .min(0.1)
-          .max(10)
-          .step(0.1);
-        gui
-          .add(content.scale as any, "y")
-          .min(0.1)
-          .max(10)
-          .step(0.1);
-        gui
-          .add(content.scale as any, "z")
-          .min(0.1)
-          .max(10)
-          .step(0.1);
-        gui
-          .add(content.position as any, "x")
-          .min(-100)
-          .max(100)
-          .step(0.1);
-        gui
-          .add(content.position as any, "y")
-          .min(-100)
-          .max(100)
-          .step(0.1);
-        gui
-          .add(content.position as any, "z")
-          .min(-100)
-          .max(100)
-          .step(0.1);
+        gui.add(content.rotation, "x").min(-20).max(20).step(0.1);
+        gui.add(content.rotation, "y").min(-20).max(20).step(0.1);
+        gui.add(content.rotation, "z").min(-20).max(20).step(0.1);
+        gui.add(content.scale, "x").min(0.1).max(10).step(0.1);
+        gui.add(content.scale, "y").min(0.1).max(10).step(0.1);
+        gui.add(content.scale, "z").min(0.1).max(10).step(0.1);
+        gui.add(content.position, "x").min(-100).max(100).step(0.1);
+        gui.add(content.position, "y").min(-100).max(100).step(0.1);
+        gui.add(content.position, "z").min(-100).max(100).step(0.1);
         scene?.setPlayRate(3.5);
       });
-      // scene.loadDicom("/copper3d_examples/mri_4ch/1.dcm");
-      // scene.texture2d(url);
-
-      // scene.updateBackground("#5454ad", "#18e5a7");
+      scene.updateBackground("#141519", "#0c0d10");
     }
 
     // Copper.setHDRFilePath("/copper3d_examples/footprint_court_2k.hdr");
@@ -171,6 +132,10 @@ function minusPlayRate() {
   scene && scene.setPlayRate(playRate);
   console.log(playRate);
 }
+
+onBeforeUnmount(() => {
+  appRenderer?.dispose();
+});
 </script>
 
 <style>

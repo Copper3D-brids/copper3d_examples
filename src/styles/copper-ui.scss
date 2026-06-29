@@ -1,0 +1,236 @@
+/* ============================================================================
+   Copper UI — shared control kit for all examples.
+   Dark "instrument panel" look matching the gallery home page.
+   Use the .cu-* classes for custom HUDs; dat.gui panels are themed automatically.
+   ========================================================================== */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --cu-bg: #0c0d10;
+  --cu-panel: rgba(18, 20, 24, 0.86);
+  --cu-line: #2a2d36;
+  --cu-ink: #e9e7e3;
+  --cu-muted: #8b8d96;
+  --cu-accent: #c8804a;
+  --cu-accent-bright: #e89a5c;
+  --cu-font: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+
+/* ---------- floating panel ---------- */
+.cu-panel {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 210px;
+  max-width: 280px;
+  padding: 14px 16px;
+  border: 1px solid var(--cu-line);
+  border-radius: 12px;
+  background: var(--cu-panel);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 16px 40px -22px rgba(0, 0, 0, 0.85);
+  color: var(--cu-ink);
+  font-family: var(--cu-font);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.cu-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cu-muted);
+  margin-bottom: 2px;
+}
+.cu-panel__title::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cu-accent-bright);
+  box-shadow: 0 0 10px var(--cu-accent);
+}
+.cu-panel hr,
+.cu-divider {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--cu-line);
+  margin: 2px 0;
+}
+
+/* ---------- buttons ---------- */
+.cu-btn {
+  appearance: none;
+  cursor: pointer;
+  font-family: var(--cu-font);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--cu-ink);
+  background: #1b1e24;
+  border: 1px solid var(--cu-line);
+  border-radius: 8px;
+  padding: 7px 12px;
+  transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.1s;
+}
+.cu-btn:hover {
+  border-color: rgba(200, 128, 74, 0.55);
+  color: var(--cu-accent-bright);
+}
+.cu-btn:active { transform: translateY(1px); }
+.cu-btn--accent {
+  background: var(--cu-accent);
+  border-color: var(--cu-accent);
+  color: #12100e;
+}
+.cu-btn--accent:hover {
+  background: var(--cu-accent-bright);
+  border-color: var(--cu-accent-bright);
+  color: #12100e;
+}
+
+/* ---------- labelled field row ---------- */
+.cu-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.cu-field > span:first-child {
+  min-width: 56px;
+  color: var(--cu-muted);
+}
+.cu-value {
+  margin-left: auto;
+  color: var(--cu-accent-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- range slider ---------- */
+.cu-range {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--cu-line);
+  outline: none;
+  cursor: pointer;
+}
+.cu-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cu-accent-bright);
+  border: 2px solid var(--cu-bg);
+  box-shadow: 0 0 0 1px var(--cu-accent);
+}
+.cu-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--cu-bg);
+  border-radius: 50%;
+  background: var(--cu-accent-bright);
+}
+
+/* ---------- checkbox ---------- */
+.cu-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--cu-muted);
+}
+.cu-check input[type="checkbox"] {
+  accent-color: var(--cu-accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* ============================================================================
+   Global fallback — unify every plain example button / button group / gui slot
+   without touching each file. Scoped component styles and element-plus (.el-*)
+   keep their own look (higher specificity), so this only upgrades bare controls.
+   ========================================================================== */
+button {
+  font-family: var(--cu-font);
+  font-size: 12px;
+  color: var(--cu-ink);
+  background: #1b1e24;
+  border: 1px solid var(--cu-line);
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+button:hover {
+  border-color: rgba(200, 128, 74, 0.55);
+  color: var(--cu-accent-bright);
+}
+button:active { transform: translateY(1px); }
+
+/* a group of buttons (`<div class="btn">`) becomes a floating panel */
+div.btn {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--cu-line);
+  border-radius: 12px;
+  background: var(--cu-panel);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+div.btn > button { background: #15171c; }
+
+/* the dat.gui mount slot — keep it pinned top-left consistently */
+#gui {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 50;
+}
+
+/* ============================================================================
+   dat.gui copper theme — applies to every gui.domElement automatically.
+   ========================================================================== */
+.dg.main {
+  font-family: var(--cu-font) !important;
+}
+.dg.main .close-button {
+  background-color: #15171c !important;
+}
+.dg.main .close-button:hover { background-color: #1b1e24 !important; }
+.dg li:not(.folder) {
+  background: #141519 !important;
+  border-bottom: 1px solid var(--cu-line) !important;
+}
+.dg li.title {
+  background: #16181d
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='6' height='6'><circle cx='3' cy='3' r='2' fill='%23c8804a'/></svg>")
+    6px 50% no-repeat !important;
+  color: var(--cu-ink) !important;
+}
+.dg .cr.number input[type="text"],
+.dg .cr.string input[type="text"] {
+  background: #0f1115 !important;
+  color: var(--cu-accent-bright) !important;
+}
+.dg .c .slider { background: var(--cu-line) !important; }
+.dg .c .slider-fg { background: var(--cu-accent) !important; }
+.dg .c .slider:hover .slider-fg { background: var(--cu-accent-bright) !important; }
+.dg .cr.number { border-left: 3px solid var(--cu-accent) !important; }
+.dg .cr.boolean { border-left: 3px solid #4a7fc8 !important; }
+.dg .cr.function:hover,
+.dg .cr.boolean:hover,
+.dg .cr.number:hover { background: #1b1e24 !important; }

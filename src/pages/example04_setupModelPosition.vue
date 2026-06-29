@@ -35,10 +35,10 @@
 
 <script setup lang="ts">
 import { GUI } from "dat.gui";
-// import * as Copper from "../ts/index";
-import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
-import { getCurrentInstance, onMounted, ref } from "vue";
+// import * as Copper from "copper3d";
+import * as Copper from "copper3d";
+import "copper3d/dist/css/style.css";
+import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 
 let refs = null;
 let appRenderer: Copper.copperRenderer;
@@ -89,7 +89,7 @@ function loadModel(url: string, name: string) {
     if (scene) {
       appRenderer.setCurrentScene(scene);
 
-      scene.controls.staticMoving = true;
+      (scene.controls as Copper.Copper3dTrackballControls).staticMoving = true;
       if (name === "test") {
         scene.loadGltf(url, (content) => {
           scene &&
@@ -188,6 +188,10 @@ function getPosition(event: MouseEvent) {
     console.log(pos);
   }, 1000);
 }
+
+onBeforeUnmount(() => {
+  appRenderer?.dispose();
+});
 </script>
 
 <style lang="scss" scoped>

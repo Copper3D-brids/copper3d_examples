@@ -7,11 +7,11 @@
 </template>
 
 <script setup lang="ts">
-import * as Copper from "../ts/index";
+import * as Copper from "copper3d";
 import { GUI } from "dat.gui";
 // import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
-import { getCurrentInstance, onMounted, ref } from "vue";
+import "copper3d/dist/css/style.css";
+import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 
 // let refs = null;
 let bg: HTMLDivElement = ref<any>(null);
@@ -20,7 +20,7 @@ let c_gui: HTMLDivElement = ref<any>(null);
 let c_gui_2: HTMLDivElement = ref<any>(null);
 let c_gui_3: HTMLDivElement = ref<any>(null);
 let loadBar: Copper.loadingBarType;
-let nrrdTools: Copper.nrrd_tools;
+let nrrdTools: Copper.NrrdTools;
 onMounted(() => {
   let { $refs } = (getCurrentInstance() as any).proxy;
   // refs = $refs;
@@ -164,6 +164,10 @@ function loadNrrd1(
   appRenderer.updateEnvironment(sceneIn);
   // sceneIn.controls.rotateSpeed = 0.01;
 }
+
+onBeforeUnmount(() => {
+  appRenderer?.dispose();
+});
 </script>
 
 <style lang="scss" scoped>

@@ -24,13 +24,13 @@
 </template>
 
 <script setup lang="ts">
-import * as Copper from "../ts/index";
+import * as Copper from "copper3d";
 // import * as Copper from "copper3d_visualisation";
 // import "copper3d_visualisation/dist/css/style.css";
 
 import { GUI } from "dat.gui";
 import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
-import { getCurrentInstance, onMounted, ref, watchEffect, reactive } from "vue";
+import { getCurrentInstance, onMounted, onBeforeUnmount, ref, watchEffect, reactive } from "vue";
 import NavBar from "../components/NavBar.vue";
 import Upload from "../components/Upload.vue";
 import axios from "axios";
@@ -57,7 +57,7 @@ let pre_slices = ref();
 
 let gui = new GUI({ width: 300, autoPlace: false });
 let selectedContrastFolder: GUI;
-let nrrdTools: Copper.nrrd_tools;
+let nrrdTools: Copper.NrrdTools;
 let loadBarMain: Copper.loadingBarType;
 let urls: Array<string> = [];
 let timer: any;
@@ -85,7 +85,7 @@ onMounted(() => {
   appRenderer = new Copper.copperRenderer(bg);
   loadBarMain = Copper.loading();
 
-  nrrdTools = new Copper.nrrd_tools(nrrd_c);
+  nrrdTools = new Copper.NrrdTools(nrrd_c);
   nrrd_c.appendChild(loadBarMain.loadingContainer);
 
   // nrrdTools.setContrastDisplayInMainArea(5);
@@ -153,7 +153,7 @@ const onCloseDialog = (flag: boolean) => {
 const resetSlicesOrientation = (axis: "x" | "y" | "z") => {
   nrrdTools.setSliceOrientation(axis);
   max.value = nrrdTools.getMaxSliceNum()[1];
-  const { currentIndex, contrastIndex } =
+  const { currentSliceIndex: currentIndex, contrastIndex } =
     nrrdTools.getCurrentSlicesNumAndContrastNum();
   immediateSliceNum.value = currentIndex;
   contrastNum.value = contrastIndex;
@@ -209,20 +209,22 @@ worker.onmessage = function (ev: MessageEvent) {
   console.log("send");
 };
 
-const sendMaskToBackend = () => {
-  timer = setInterval(async () => {
-    const masksData = nrrdTools.paintImages.z;
-    const dimensions = nrrdTools.getCurrentImageDimension();
-    const len = masksData.length;
-    const width = dimensions[0];
-    const height = dimensions[1];
-    if (len > 0) {
-      worker.postMessage({ masksData, len, width, height });
-      // const masks = await restructData(masksData, len, width, height);
-      // console.log("a");
-    }
-  }, 60000);
-};
+// NOTE: Disabled during the copper3d@3.x migration. The old `nrrdTools.paintImages.z`
+// (an array of per-slice IPaintImage) was removed from the public API. To re-enable,
+// reimplement this against `nrrdTools.getMaskData()` (returns { volumes }) and adapt
+// the worker pipeline accordingly. The only caller below is already commented out.
+// const sendMaskToBackend = () => {
+//   timer = setInterval(async () => {
+//     const masksData = nrrdTools.paintImages.z;
+//     const dimensions = nrrdTools.getCurrentImageDimension();
+//     const len = masksData.length;
+//     const width = dimensions[0];
+//     const height = dimensions[1];
+//     if (len > 0) {
+//       worker.postMessage({ masksData, len, width, height });
+//     }
+//   }, 60000);
+// };
 
 const getMaskData = (image: ImageData, sliceId: number) => {
   console.log(image);
@@ -239,11 +241,9 @@ watchEffect(() => {
     if (!!timer) {
       clearInterval(timer);
     }
-    nrrdTools.clear();
     allSlices.sort((a: any, b: any) => {
       return a.order - b.order;
     });
-    nrrdTools.setShowInMainArea(true);
     nrrdTools.setAllSlices(allSlices);
     initSliceIndex.value = nrrdTools.getCurrentSliceIndex();
 
@@ -257,7 +257,8 @@ watchEffect(() => {
         showNumber: true,
         getSliceNum,
       });
-      nrrdTools.draw(scene as Copper.copperScene, gui, { getMaskData });
+      nrrdTools.setupGUI(gui);
+      nrrdTools.draw({ getMaskData });
 
       scene?.addPreRenderCallbackFunction(nrrdTools.start);
       // sendMaskToBackend();
@@ -283,7 +284,7 @@ watchEffect(() => {
       }
     }
 
-    nrrdTools.removeGuiFolderChilden(selectedContrastFolder);
+    Copper.removeGuiFolderChilden(selectedContrastFolder);
     for (let i = 0; i < allSlices.length; i++) {
       let name = "";
       i === 0 ? (name = "pre") : (name = "contrast" + i);
@@ -300,7 +301,7 @@ watchEffect(() => {
           max.value = maxNum;
 
           // update 1.12.19
-          const { currentIndex, contrastIndex } =
+          const { currentSliceIndex: currentIndex, contrastIndex } =
             nrrdTools.getCurrentSlicesNumAndContrastNum();
           immediateSliceNum.value = currentIndex;
           contrastNum.value = contrastIndex + 1;
@@ -432,6 +433,10 @@ const loadAllNrrds = (urls: Array<string>) => {
     );
   }
 };
+
+onBeforeUnmount(() => {
+  appRenderer?.dispose();
+});
 </script>
 
 <style>

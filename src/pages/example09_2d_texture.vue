@@ -6,7 +6,7 @@
 </template>
 
 <script setup lang="ts">
-import * as Copper from "../ts/index";
+import * as Copper from "copper3d";
 // import * as Copper from "copper3d_visualisation";
 // import "copper3d_visualisation/dist/css/style.css";
 // import Scene from "gltfloader-plugin-test/dist/Scene/index";
@@ -17,7 +17,7 @@ import * as THREE from "three";
 
 // import viewdata from "./assets/noInfarct_view.json";
 import { GUI } from "dat.gui";
-import { getCurrentInstance, onMounted, ref } from "vue";
+import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 let refs = null;
 let appRenderer: Copper.copperRenderer;
 
@@ -60,21 +60,12 @@ function loadModel(url: string, name: string) {
       appRenderer.setCurrentScene(scene);
 
       const urls = [];
-      // for (let i = 1; i <= 20; i++) {
-      //   urls.push(`/copper3d_examples/brain/brain_0${i}.dcm`);
-      // }
-      for (let i = 1; i <= 160; i++) {
-        if (i < 100) {
-          urls.push(`/copper3d_examples/breast-dicom/1-0${i}.dcm`);
-        } else {
-          urls.push(`/copper3d_examples/breast-dicom/1-${i}.dcm`);
-        }
+      // 32-frame cardiac 4-chamber MRI cine (public/mri_4ch/1.dcm … 32.dcm)
+      for (let i = 1; i <= 32; i++) {
+        urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
       }
-      // for (let i = 1; i <= 32; i++) {
-      //   urls.push(`/copper3d_examples/mri_4ch/${i}.dcm`);
-      // }
 
-      scene.setDicomFilesOrder("descending");
+      scene.setDicomFilesOrder("ascending");
       scene.loadDicom(urls, {
         gui,
         getMesh(mesh) {
@@ -93,7 +84,7 @@ function loadModel(url: string, name: string) {
       // scene.loadDicom("/copper3d_examples/mri_4ch/1.dcm");
       // scene.texture2d(url);
       scene.loadViewUrl("/copper3d_examples/texture2d_view_array.json");
-      scene.updateBackground("#5454ad", "#18e5a7");
+      scene.updateBackground("#141519", "#0c0d10");
     }
 
     Copper.setHDRFilePath("/copper3d_examples/footprint_court_2k.hdr");
@@ -101,6 +92,10 @@ function loadModel(url: string, name: string) {
     appRenderer.updateEnvironment();
   }
 }
+
+onBeforeUnmount(() => {
+  appRenderer?.dispose();
+});
 </script>
 
 <style>

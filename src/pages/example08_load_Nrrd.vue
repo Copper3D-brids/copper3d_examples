@@ -16,17 +16,16 @@
 
 <script setup lang="ts">
 import { GUI } from "dat.gui";
-import * as THREE from "three";
-import * as Copper from "../ts/index";
+import * as Copper from "copper3d";
 // import * as Copper from "copper3d_visualisation";
-import "copper3d_visualisation/dist/css/style.css";
-import { getCurrentInstance, onMounted, ref } from "vue";
+import "copper3d/dist/css/style.css";
+import { getCurrentInstance, onMounted, onBeforeUnmount, ref } from "vue";
 
 let refs = null;
 let bg: HTMLDivElement = ref<any>(null);
 let appRenderer: Copper.copperMSceneRenderer;
 let c_gui: HTMLDivElement = ref<any>(null);
-let nrrdTools: Copper.nrrd_tools;
+let nrrdTools: Copper.NrrdTools;
 let loadBar1: Copper.loadingBarType;
 let loadBar2: Copper.loadingBarType;
 
@@ -37,15 +36,14 @@ onMounted(() => {
   c_gui = refs.c_gui;
 
   appRenderer = new Copper.copperMSceneRenderer(bg, 2);
-  nrrdTools = new Copper.nrrd_tools(appRenderer.sceneInfos[0].container);
+  nrrdTools = new Copper.NrrdTools(appRenderer.sceneInfos[0].container);
   loadBar1 = Copper.loading();
   loadBar2 = Copper.loading();
 
   appRenderer.sceneInfos[0].container.appendChild(loadBar1.loadingContainer);
 
   loadNrrd(
-    "/copper3d_examples/nrrd/stent.nrrd",
-    "/copper3d_examples/nrrd/mesh_spacing.obj",
+    "/copper3d_examples/nrrd/breast-224.nrrd",
     "nrrd0",
     appRenderer.sceneInfos[0],
     c_gui
@@ -60,9 +58,41 @@ function reset() {
   });
 }
 
+function loadModel(url: string, name: string, sceneIn: Copper.copperMScene) {
+  const scene = sceneIn;
+
+  const funa = () => {
+    window.location.href =
+      "https://linkungao.github.io/medtech-heart-vue/model-heart";
+    document.removeEventListener("click", funa);
+  };
+
+  const opt = ["whole-body", "whole-body_2", "whole-body_1"];
+  if (scene) {
+    if (name === "test") {
+      scene.loadGltf(url, (content) => {
+        scene &&
+          scene.pickModel(
+            content,
+            (mesh) => {
+              if (mesh && mesh.name === "whole-heart") {
+                document.addEventListener("click", funa);
+              } else {
+                document.removeEventListener("click", funa);
+              }
+            },
+            opt
+          );
+      });
+    }
+    scene.loadViewUrl("/human_view.json");
+    scene.updateBackground("#5454ad", "#18e5a7");
+  }
+  Copper.setHDRFilePath("venice_sunset_1k.hdr");
+  appRenderer.updateEnvironment(scene);
+}
 function loadNrrd(
   url: string,
-  url_1: string,
   name: string,
   sceneIn: Copper.copperMScene,
   c_gui: any
@@ -79,121 +109,20 @@ function loadNrrd(
     gui?: GUI
   ) => {
     (gui as GUI).closed = true;
-
-    const geometry = new THREE.SphereGeometry(5, 32, 16);
-    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-
-    const sphere1 = new THREE.Mesh(geometry, material);
-    const sphere2 = new THREE.Mesh(geometry, material);
-    const sphere3 = new THREE.Mesh(geometry, material);
-    const sphere4 = new THREE.Mesh(geometry, material);
-    const origin = volume.header.space_origin.map((num: any) => Number(num));
-    const spacing = volume.spacing;
-    const pixelTspacing = volume.dimensions;
-    // sphere1.position.add(new THREE.Vector3(origin[0]+5,origin[1]-13,origin[2]+32))
-    // sphere2.position.add(new THREE.Vector3(origin[0]+pixelTspacing[0]*spacing[0]+5, origin[1]-13, origin[2]+32))
-    // sphere3.position.add(new THREE.Vector3(origin[0]+pixelTspacing[0]*spacing[0]+5, origin[1]+pixelTspacing[1]*spacing[1]-13, origin[2]+32))
-    // sphere4.position.add(new THREE.Vector3(origin[0]+5, origin[1]+pixelTspacing[1]*spacing[1]-13, origin[2]+32))
-    sphere1.position.add(
-      new THREE.Vector3(origin[0] + 5, origin[1] - 13, origin[2] + 32)
-    );
-    sphere2.position.add(
-      new THREE.Vector3(
-        origin[0] + pixelTspacing[0] * spacing[0] + 5,
-        origin[1] - 13,
-        origin[2] + 32
-      )
-    );
-    sphere3.position.add(
-      new THREE.Vector3(
-        origin[0] + pixelTspacing[0] * spacing[0] + 5,
-        origin[1] + pixelTspacing[1] * spacing[1] - 13,
-        origin[2] + 32
-      )
-    );
-    sphere4.position.add(
-      new THREE.Vector3(
-        origin[0] + 5,
-        origin[1] + pixelTspacing[1] * spacing[1] - 13,
-        origin[2] + 32
-      )
-    );
-    appRenderer.sceneInfos[0].addObject(sphere1);
-    appRenderer.sceneInfos[0].addObject(sphere2);
-    appRenderer.sceneInfos[0].addObject(sphere3);
-    appRenderer.sceneInfos[0].addObject(sphere4);
-    (gui as GUI)
-      .add(sphere1.position as any, "x")
-      .max(500)
-      .min(-500)
-      .step(1);
-    (gui as GUI)
-      .add(sphere1.position as any, "y")
-      .max(500)
-      .min(-500)
-      .step(1);
+    console.log(nrrdSlices);
 
     appRenderer.sceneInfos[0].scene.add(nrrdMesh.x, nrrdMesh.y, nrrdMesh.z);
     // appRenderer.sceneInfos[0].scene.add(nrrdMesh.y);
     // appRenderer.sceneInfos[0].scene.add(nrrdMesh.z);
-    console.log(volume);
-    const uint8Array = Uint8Array.from(volume.data, (value) => value & 0xff);
-    console.log(uint8Array);
-
-    Copper.createTexture2D_NRRD(
-      uint8Array,
-      volume.dimensions[0],
-      volume.dimensions[1],
-      volume.dimensions[2],
-      (mesh) => {
-        let depthStep = 0.3;
-        appRenderer.sceneInfos[1].scene.add(mesh);
-        const render_texture2d = () => {
-          if (mesh) {
-            let value = (mesh.material as any).uniforms["depth"].value;
-
-            // value += depthStep;
-            // if (value > 224.0 || value < 0.0) {
-            //   if (value > 1.0) value = 224.0 * 2.0 - value;
-            //   if (value < 0.0) value = -value;
-
-            //   depthStep = -depthStep;
-            // }
-
-            // value += depthStep;
-            // if (value > volume.dimensions[2]) {
-            //   value = 0;
-            // }
-
-            // (mesh.material as any).uniforms["depth"].value = value;
-          }
-          let value = (mesh.material as any).uniforms["depth"].value;
-          console.log(gui);
-
-          gui
-            ?.add({ depth: value }, "depth", 0, volume.dimensions[2], 1)
-            .onChange((value) => {
-              (mesh.material as any).uniforms["depth"].value = value;
-            });
-        };
-        render_texture2d();
-        // appRenderer.sceneInfos[1].addPreRenderCallbackFunction(
-        //   render_texture2d
-        // );
-      }
-    );
-    appRenderer.sceneInfos[1].loadViewUrl(
-      "/copper3d_examples/nrrd_view_t2.json"
-    );
+    appRenderer.sceneInfos[1].loadViewUrl("/copper3d_examples/nrrd_view.json");
     // appRenderer.sceneInfos[0].setCameraPosition({ x: 300, z: 0 });
 
-    // raycaster
-    // sceneIn.container.onclick = (ev) => {
-    //   const x = ev.offsetX;
-    //   const y = ev.offsetY;
-    //   const a = sceneIn.pickSpecifiedModel(nrrdMesh.x, { x, y });
-    //   console.log(a);
-    // };
+    sceneIn.container.onclick = (ev) => {
+      const x = ev.offsetX;
+      const y = ev.offsetY;
+      const a = sceneIn.pickSpecifiedModel(nrrdMesh.x, { x, y });
+      console.log(a);
+    };
 
     // appRenderer.sceneInfos[1].scene.add(nrrdMesh.z);
 
@@ -204,29 +133,23 @@ function loadNrrd(
     // });
   };
   if (sceneIn) {
-    sceneIn?.loadNrrd(url, loadBar1, true, funa, opts);
-    sceneIn?.loadOBJ(url_1, (content) => {
-      console.log(content);
-      //  content.position.set(5, -43, 32);
-      //  content.traverse((child)=>{
-      //       if(child as THREE.Mesh){
-      //         ((child as THREE.Mesh).material as THREE.MeshStandardMaterial).color = new THREE.Color("#4aede0")
-      //       }
-      //  })
-      // ((content.children[2] as THREE.Mesh).material as THREE.MeshStandardMaterial).color = new THREE.Color("#4aede0")
-    });
+    sceneIn?.loadNrrd(url, loadBar1, false, funa, opts);
     sceneIn.loadViewUrl("/copper3d_examples/nrrd_view.json");
   }
   sceneIn.updateBackground("#18e5a7", "#000");
   Copper.setHDRFilePath("venice_sunset_1k.hdr");
   appRenderer.updateEnvironment(sceneIn);
 }
+
+onBeforeUnmount(() => {
+  appRenderer?.dispose();
+});
 </script>
 
 <style lang="scss">
 .container {
   display: grid;
-  grid-template-columns: 20% 80%;
+  grid-template-columns: 50% 50%;
   height: 100vh;
 }
 #bg {
