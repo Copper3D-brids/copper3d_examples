@@ -102,14 +102,23 @@ const goRouter = (id: number) => {
   --cu-bright: #e89a5c;
 
   position: relative;
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
   background: var(--bg);
   color: var(--ink);
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   padding: clamp(28px, 6vw, 80px) clamp(20px, 6vw, 90px) 60px;
   box-sizing: border-box;
+  /* gallery is its own scroll container, with the scrollbar hidden */
   overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge / IE */
+}
+.gallery::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome / Safari */
 }
 
 /* dot-grid backdrop with a copper glow bleeding from top-left */

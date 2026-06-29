@@ -112,10 +112,7 @@ function loadModel(urls: Array<string>, name: string) {
         gui.add(content.position, "z").min(-100).max(100).step(0.1);
         scene?.setPlayRate(3.5);
       });
-      // scene.loadDicom("/copper3d_examples/mri_4ch/1.dcm");
-      // scene.texture2d(url);
-
-      // scene.updateBackground("#5454ad", "#18e5a7");
+      scene.updateBackground("#141519", "#0c0d10");
     }
 
     // Copper.setHDRFilePath("/copper3d_examples/footprint_court_2k.hdr");

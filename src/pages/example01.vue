@@ -155,7 +155,8 @@ onMounted(() => {
     cameraGui: true,
     performanceGui: true,
     lightGui: true,
-    controls: "trackball",
+    // copper's own trackball — integrates with loadView / resetView
+    controls: "copper3d",
   });
 
   document.addEventListener("keydown", (e) => {
@@ -175,6 +176,10 @@ onMounted(() => {
   } catch (_) {
     /* no gui to hide */
   }
+
+  // lock the page so nothing (gui / canvas / panel) can produce a scrollbar
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
 });
 function loadModel(url: string, name: string) {
   activeModel.value = name;
@@ -231,12 +236,9 @@ function loadModel(url: string, name: string) {
             );
         });
       } else {
-        scene.loadGltf(url, (mesh) => {
+        scene.loadGltf(url, () => {
           if (viewpoint) {
             scene && scene.updateCamera(viewpoint);
-          } else if (scene) {
-            // frame the model to fit the view (robust for any asset / scale)
-            frameModel(scene, mesh);
           }
         });
       }
@@ -262,8 +264,25 @@ function loadModel(url: string, name: string) {
               font: "Raleway",
             }
           );
+        } else {
+          scene.loadViewUrl("/copper3d_examples/noInfarct_view.json");
+          Copper.addLabelToScene(
+            scene,
+            "left ventricle",
+            -55.056679,
+            -14.82123313284426,
+            5.421283,
+            60.0
+          );
+          Copper.addLabelToScene(
+            scene,
+            "right ventricle",
+            -44.323991175632,
+            31.1417335930078,
+            10.421283,
+            60.0
+          );
         }
-        // default models: camera is framed automatically once the gltf loads
       }
     }
     Copper.setHDRFilePath("/copper3d_examples/venice_sunset_1k.hdr");
@@ -274,28 +293,6 @@ function loadModel(url: string, name: string) {
     if (viewpoint) scene.updateCamera(viewpoint);
     appRenderer.setCurrentScene(scene);
   }
-}
-
-// Fit the camera so the whole model is centred and fills the view.
-// Robust for any asset regardless of its scale / origin.
-function frameModel(s: Copper.copperScene, obj: THREE.Object3D) {
-  const box = new THREE.Box3().setFromObject(obj);
-  if (box.isEmpty()) return;
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z) || 1;
-  const cam = s.camera as THREE.PerspectiveCamera;
-  const fov = (cam.fov * Math.PI) / 180;
-  const dist = (maxDim / 2 / Math.tan(fov / 2)) * 1.6;
-  cam.near = Math.max(dist / 1000, 0.01);
-  cam.far = dist * 1000;
-  cam.position.set(center.x, center.y, center.z + dist);
-  cam.up.set(0, 1, 0);
-  cam.lookAt(center);
-  cam.updateProjectionMatrix();
-  const controls = s.controls as any;
-  controls.target?.copy?.(center);
-  controls.update?.();
 }
 
 function sharePosition(scene: Copper.copperScene) {
@@ -741,15 +738,9 @@ function updateViewJson() {
 }
 
 function portalReset() {
-  if (!portalScene || !portalInitCam) return;
-  const cam = portalScene.camera as THREE.PerspectiveCamera;
-  const controls = portalScene.controls as any;
-  cam.position.copy(portalInitCam.pos);
-  cam.up.copy(portalInitCam.up);
-  cam.lookAt(portalInitCam.target);
-  cam.updateProjectionMatrix();
-  controls.target?.copy(portalInitCam.target);
-  controls.update?.();
+  // reuse the initial framing path (keeps the trackball in a valid state so
+  // rotate / zoom keep working after a reset)
+  framePortalCamera();
 }
 
 function copyView() {
@@ -761,6 +752,9 @@ watch(showBody, (v) => pgBody && (pgBody.visible = v));
 watch(showVessels, (v) => pgVessels && (pgVessels.visible = v));
 
 onBeforeUnmount(() => {
+  // restore page scrolling for other routes
+  document.documentElement.style.overflow = "";
+  document.body.style.overflow = "";
   appRenderer?.dispose();
 });
 </script>
