@@ -1,88 +1,92 @@
 <template>
-  <!-- <div id="bg" ref="base_container" @click="getPosition"> -->
-  <div class="root">
+  <div class="ex01">
     <div id="bg" ref="base_container">
       <div ref="c_gui" id="gui"></div>
-      <div class="btn">
-        <!-- <button @click="loadModel('/zincmmodel1.glb', 'health1')">Health</button> -->
+
+      <!-- ---------- main control panel ---------- -->
+      <div class="cu-panel ex01-panel">
+        <div class="ex01-head">
+          <button class="ex01-back" title="Back to gallery" @click="goHome">
+            ←
+          </button>
+          <span class="ex01-kicker">EXAMPLE 01 · MULTIPLE MODELS</span>
+        </div>
+
+        <div class="cu-panel__title">Models</div>
+        <div class="ex01-list">
+          <button
+            v-for="m in models"
+            :key="m.name"
+            class="ex01-item"
+            :class="{ active: activeModel === m.name }"
+            @click="m.action()"
+          >
+            {{ m.label }}
+          </button>
+        </div>
+
+        <hr />
         <button
-          @click="loadModel('/copper3d_examples/heart_2d.gltf', 'health')"
+          class="cu-btn cu-btn--accent ex01-featured"
+          :class="{ active: activeModel === 'portal_hearts' }"
+          @click="loadPortalHearts"
         >
-          Health
+          ✦ Portal Hearts
         </button>
-        <button @click="loadModel('/copper3d_examples/mask-glb.glb', 'mask-glb')">
-          mask glb
+
+        <hr />
+        <div class="cu-panel__title">Playback</div>
+        <div class="ex01-row">
+          <button class="cu-btn" title="Slower" @click="minusPlayRate">–</button>
+          <span class="cu-value">{{ playRate }}×</span>
+          <button class="cu-btn" title="Faster" @click="addPlayRate">+</button>
+        </div>
+        <button class="cu-btn" @click="reset">Reset view</button>
+
+        <hr />
+        <button class="ex01-toggle" @click="advancedOpen = !advancedOpen">
+          {{ advancedOpen ? "▾" : "▸" }} Advanced / loaders
         </button>
-        <button @click="loadModel('/copper3d_examples/Minor.glb', 'minor')">
-          Minor
-        </button>
-        <button
-          @click="loadModel('/copper3d_examples/normalActivity.glb', 'normal')"
-        >
-          Electricity normal
-        </button>
-        <button
-          @click="
-            loadModel('/copper3d_examples/Fibrillation.glb', 'fibrillation')
-          "
-        >
-          Fibrillation
-        </button>
-        <button @click="loadModel('/copper3d_examples/Severe.glb', 'severe')">
-          Severe
-        </button>
-        <button @click="loadModel('/copper3d_examples/walkmodel.glb', 'walk')">
-          Walk model
-        </button>
-        <button @click="loadModel('/copper3d_examples/test.glb', 'test')">
-          Test
-        </button>
-        <button
-          @click="
-            loadModel('/copper3d_examples/digital_twin.gltf', 'digital_twin')
-          "
-        >
-          Digital twins
-        </button>
-        <button @click="reset">Reset</button>
-        <button @click="addPlayRate">addPlayRate</button>
-        <button @click="minusPlayRate">minusPlayRate</button>
-        <button
-          @click="
-            loadNrrd(
-              '/copper3d_examples/nrrd/segmentation/ax dyn pre.nrrd',
-              'nrrd'
-            )
-          "
-        >
-          LoadNrrd
-        </button>
-        <button
-          @click="
-            loadNrrd('/copper3d_examples/nrrd/breast-224.nrrd', 'nrrd-breast1')
-          "
-        >
-          LoadNrrd-breast1
-        </button>
-        <button
-          @click="loadVtk('/copper3d_examples/nrrd/breast.vtk', 'vtk-breast1')"
-        >
-          LoadVtk-heart
-        </button>
-        <button
-          @click="
-            loadObj('/copper3d_examples/mask_normals_inverted.obj', 'mask-mesh')
-          "
-        >
-          LoadOBJ
-        </button>
-        <button @click="loadtime">getTime</button>
-        <button @click="getMixer">getMixer</button>
-        <button class="cu-btn cu-btn--accent" @click="loadPortalHearts">
-          Portal Hearts
-        </button>
+        <div v-if="advancedOpen" class="ex01-list">
+          <button
+            class="ex01-item"
+            @click="
+              loadNrrd(
+                '/copper3d_examples/nrrd/segmentation/ax dyn pre.nrrd',
+                'nrrd'
+              )
+            "
+          >
+            Load NRRD · pre
+          </button>
+          <button
+            class="ex01-item"
+            @click="
+              loadNrrd('/copper3d_examples/nrrd/breast-224.nrrd', 'nrrd-breast1')
+            "
+          >
+            Load NRRD · breast
+          </button>
+          <button
+            class="ex01-item"
+            @click="loadVtk('/copper3d_examples/nrrd/breast.vtk', 'vtk-breast1')"
+          >
+            Load VTK · heart
+          </button>
+          <button
+            class="ex01-item"
+            @click="
+              loadObj('/copper3d_examples/mask_normals_inverted.obj', 'mask-mesh')
+            "
+          >
+            Load OBJ · mask
+          </button>
+          <button class="ex01-item" @click="loadtime">Log time</button>
+          <button class="ex01-item" @click="getMixer">Log mixer</button>
+        </div>
       </div>
 
+      <!-- ---------- portal hearts HUD ---------- -->
       <div v-if="portalActive" class="cu-panel portal-hud">
         <div class="cu-panel__title">Portal Hearts</div>
         <label class="cu-check"><input type="checkbox" v-model="showHeart1" /> heart1</label>
@@ -95,8 +99,10 @@
           <button class="cu-btn" @click="copyView">Copy JSON</button>
           <button class="cu-btn cu-btn--accent" @click="portalReset">Reset</button>
         </div>
-        <div class="portal-hint">drag rotate · scroll zoom · right-drag pan</div>
       </div>
+
+      <!-- ---------- controls hint ---------- -->
+      <div class="ex01-hint">drag rotate · scroll zoom · right-drag pan</div>
     </div>
   </div>
 </template>
@@ -110,7 +116,24 @@ import * as Copper from "copper3d";
 // import viewdata from "./assets/noInfarct_view.json";
 
 import { getCurrentInstance, onMounted, onBeforeUnmount, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { PerspectiveCamera } from "three";
+
+const router = useRouter();
+const goHome = () => router.push("/");
+const activeModel = ref("");
+const advancedOpen = ref(false);
+const models = [
+  { name: "health", label: "Health", action: () => loadModel("/copper3d_examples/heart_2d.gltf", "health") },
+  { name: "mask-glb", label: "Mask GLB", action: () => loadModel("/copper3d_examples/mask-glb.glb", "mask-glb") },
+  { name: "minor", label: "Minor", action: () => loadModel("/copper3d_examples/Minor.glb", "minor") },
+  { name: "normal", label: "Electricity normal", action: () => loadModel("/copper3d_examples/normalActivity.glb", "normal") },
+  { name: "fibrillation", label: "Fibrillation", action: () => loadModel("/copper3d_examples/Fibrillation.glb", "fibrillation") },
+  { name: "severe", label: "Severe", action: () => loadModel("/copper3d_examples/Severe.glb", "severe") },
+  { name: "walk", label: "Walk model", action: () => loadModel("/copper3d_examples/walkmodel.glb", "walk") },
+  { name: "test", label: "Test", action: () => loadModel("/copper3d_examples/test.glb", "test") },
+  { name: "digital_twin", label: "Digital twins", action: () => loadModel("/copper3d_examples/digital_twin.gltf", "digital_twin") },
+];
 let refs = null;
 let appRenderer: Copper.copperRenderer;
 let oldScene = null;
@@ -132,12 +155,8 @@ onMounted(() => {
     cameraGui: true,
     performanceGui: true,
     lightGui: true,
-    controls: "copper3d",
+    controls: "trackball",
   });
-  // appRenderer.gui.closed = true;
-  appRenderer.closeGui();
-  // appRenderer = new Copper.copperRenderer(bg);
-  // appRenderer.closeGui();
 
   document.addEventListener("keydown", (e) => {
     if (e.code === "KeyF") {
@@ -145,14 +164,20 @@ onMounted(() => {
     }
   });
 
-  const defaultScene = appRenderer.getCurrentScene();
-  defaultScene.createDemoMesh();
-
   appRenderer.animate();
-  // appRenderer.fpsCap.fps = 30;
+
+  // load a heart model right away instead of the debug demo mesh
+  loadModel("/copper3d_examples/heart_2d.gltf", "health");
+
+  // fully hide the dat.gui ("Open Controls") — this example uses its own panel
+  try {
+    if (appRenderer.gui) appRenderer.gui.domElement.style.display = "none";
+  } catch (_) {
+    /* no gui to hide */
+  }
 });
 function loadModel(url: string, name: string) {
-  console.log("loadModel");
+  activeModel.value = name;
 
   if (scene) {
     sharePosition(scene);
@@ -177,13 +202,16 @@ function loadModel(url: string, name: string) {
     if (scene) {
       appRenderer.setCurrentScene(scene);
 
-      (scene.controls as Copper.Copper3dTrackballControls).staticMoving = true;
-      scene.controls.panSpeed = 3;
-      scene.controls.rotateSpeed = 3;
-      scene.controls.mouseButtons = {
-        LEFT: -1,
+      // trackball: rotate (left) · zoom (wheel / middle-drag) · pan (right-drag)
+      const controls = scene.controls as any;
+      controls.staticMoving = true;
+      controls.rotateSpeed = 3;
+      controls.zoomSpeed = 1.2;
+      controls.panSpeed = 1;
+      controls.mouseButtons = {
+        LEFT: THREE.MOUSE.ROTATE,
         MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.ROTATE,
+        RIGHT: THREE.MOUSE.PAN,
       };
 
       if (name === "test") {
@@ -204,15 +232,11 @@ function loadModel(url: string, name: string) {
         });
       } else {
         scene.loadGltf(url, (mesh) => {
-          // console.log(mesh);
-          // (
-          //   (mesh.children[0] as THREE.Mesh)
-          //     .material as THREE.MeshStandardMaterial
-          // ).side = THREE.DoubleSide;
-
           if (viewpoint) {
-            // console.log(viewpoint);
             scene && scene.updateCamera(viewpoint);
+          } else if (scene) {
+            // frame the model to fit the view (robust for any asset / scale)
+            frameModel(scene, mesh);
           }
         });
       }
@@ -238,40 +262,40 @@ function loadModel(url: string, name: string) {
               font: "Raleway",
             }
           );
-        } else {
-          scene.loadViewUrl("/copper3d_examples/noInfarct_view.json");
-          Copper.addLabelToScene(
-            scene,
-            "left ventricle",
-            -55.056679,
-            -14.82123313284426,
-            5.421283,
-            60.0
-          );
-          Copper.addLabelToScene(
-            scene,
-            "right ventricle",
-            -44.323991175632,
-            31.1417335930078,
-            10.421283,
-            60.0
-          );
         }
+        // default models: camera is framed automatically once the gltf loads
       }
-
-      // scene.directionalLight.intensity = 1;
-
-      // scene.directionalLight.color = new THREE.Color(0x18ef06);
-      scene.updateBackground("#5454ad", "#18e5a7");
     }
     Copper.setHDRFilePath("/copper3d_examples/venice_sunset_1k.hdr");
-    // Copper.setHDRFilePath("/copper3d_examples/footprint_court_2k.hdr");
-    // Copper.setHDRFilePath("/copper3d_examples/sandsloot_1k.hdr");
     appRenderer.updateEnvironment();
+    // dark gradient applied AFTER the environment so the HDR map can't wash it out
+    scene?.updateBackground("#141519", "#0c0d10");
   } else {
     if (viewpoint) scene.updateCamera(viewpoint);
     appRenderer.setCurrentScene(scene);
   }
+}
+
+// Fit the camera so the whole model is centred and fills the view.
+// Robust for any asset regardless of its scale / origin.
+function frameModel(s: Copper.copperScene, obj: THREE.Object3D) {
+  const box = new THREE.Box3().setFromObject(obj);
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+  const cam = s.camera as THREE.PerspectiveCamera;
+  const fov = (cam.fov * Math.PI) / 180;
+  const dist = (maxDim / 2 / Math.tan(fov / 2)) * 1.6;
+  cam.near = Math.max(dist / 1000, 0.01);
+  cam.far = dist * 1000;
+  cam.position.set(center.x, center.y, center.z + dist);
+  cam.up.set(0, 1, 0);
+  cam.lookAt(center);
+  cam.updateProjectionMatrix();
+  const controls = s.controls as any;
+  controls.target?.copy?.(center);
+  controls.update?.();
 }
 
 function sharePosition(scene: Copper.copperScene) {
@@ -332,7 +356,7 @@ function getPosition(event: MouseEvent) {
 }
 
 function loadNrrd(url: string, name: string) {
-  // bg.appendChild(loadBar.loadingContainer);
+  activeModel.value = name;
   scene = appRenderer.getSceneByName(name) as Copper.copperScene;
   if (scene == undefined) {
     scene = appRenderer.createScene(name);
@@ -362,6 +386,7 @@ function loadNrrd(url: string, name: string) {
 }
 
 function loadObj(url: string, name: string) {
+  activeModel.value = name;
   scene = appRenderer.getSceneByName(name) as Copper.copperScene;
   if (scene == undefined) {
     scene = appRenderer.createScene(name);
@@ -380,6 +405,7 @@ function loadObj(url: string, name: string) {
 }
 
 function loadVtk(url: string, name: string) {
+  activeModel.value = name;
   scene = appRenderer.getSceneByName(name) as Copper.copperScene;
   // const url_base =
   //   "/copper3d_examples/surfaces_lv/model_participant_000_lv_demo_endo_0";
@@ -599,6 +625,7 @@ function grainPoints(g: THREE.BufferGeometry, N = 30000) {
 
 function loadPortalHearts() {
   const name = "portal_hearts";
+  activeModel.value = name;
   let s = appRenderer.getSceneByName(name) as Copper.copperScene;
   if (s) {
     appRenderer.setCurrentScene(s);
@@ -738,38 +765,140 @@ onBeforeUnmount(() => {
 });
 </script>
 
-<style>
-#bg {
-  width: 100vw;
-  height: 100vh;
-  /* border: 1px solid palevioletred; */
-}
-.btn {
+<style scoped>
+/* full-bleed stage, no page scrollbars */
+.ex01 {
   position: fixed;
-  left: 0;
-  top: 0;
+  inset: 0;
+  overflow: hidden;
+  background: #0c0d10;
 }
-button {
+#bg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- main panel ---------- */
+.ex01-panel {
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+/* hide every scrollbar in this example (still scrollable, just no visible bar) */
+.ex01-panel,
+.portal-hud,
+.portal-json {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge / IE */
+}
+.ex01-panel::-webkit-scrollbar,
+.portal-hud::-webkit-scrollbar,
+.portal-json::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome / Safari */
+}
+.ex01-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ex01-back {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+}
+.ex01-kicker {
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--cu-muted);
+}
+
+/* ---------- model list ---------- */
+.ex01-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ex01-item {
+  text-align: left;
+  width: 100%;
+  margin: 0;
+  background: #15171c;
+  border: 1px solid var(--cu-line);
+  border-radius: 8px;
+  padding: 8px 11px;
+  color: var(--cu-ink);
+  font-family: var(--cu-font);
+  font-size: 12px;
   cursor: pointer;
-  margin: 10px;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
-#gui {
-  position: absolute;
-  top: 150px;
-  left: 2px;
+.ex01-item:hover {
+  border-color: rgba(200, 128, 74, 0.55);
+  color: var(--cu-accent-bright);
 }
-.root {
-  background-color: brown;
+.ex01-item.active {
+  border-color: var(--cu-accent);
+  color: var(--cu-accent-bright);
+  background: rgba(200, 128, 74, 0.12);
 }
+
+.ex01-featured.active {
+  outline: 2px solid var(--cu-accent-bright);
+  outline-offset: 1px;
+}
+
+/* ---------- playback row ---------- */
+.ex01-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ex01-row .cu-btn {
+  flex: none;
+  width: 34px;
+  text-align: center;
+}
+.ex01-row .cu-value {
+  margin: 0 auto;
+}
+
+/* ---------- advanced toggle ---------- */
+.ex01-toggle {
+  width: 100%;
+  text-align: left;
+  margin: 0 0 2px;
+  background: transparent;
+  border: none;
+  color: var(--cu-muted);
+  font-family: var(--cu-font);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  padding: 2px 0;
+}
+.ex01-toggle:hover {
+  color: var(--cu-accent-bright);
+}
+
+/* ---------- portal HUD ---------- */
 .portal-hud {
   left: auto;
   right: 16px;
   top: 16px;
   min-width: 250px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 .portal-json {
   margin: 0;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--cu-font);
   font-size: 11px;
   line-height: 1.5;
   color: #6fe0f2;
@@ -784,9 +913,24 @@ button {
   flex: 1;
   margin: 0;
 }
-.portal-hint {
-  font-size: 10px;
+
+/* ---------- controls hint ---------- */
+.ex01-hint {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  border: 1px solid var(--cu-line);
+  border-radius: 999px;
+  background: rgba(18, 20, 24, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: var(--cu-font);
+  font-size: 10.5px;
   letter-spacing: 0.08em;
-  color: #5a7e8c;
+  color: var(--cu-muted);
+  pointer-events: none;
+  white-space: nowrap;
 }
 </style>
