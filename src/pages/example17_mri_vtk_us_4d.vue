@@ -118,6 +118,8 @@ let scene: Copper.copperScene | undefined;
 let mriCtrl: Copper.Aligned4DController | undefined;
 let usCtrl: Copper.Raw4DVolumeController | undefined;
 let clockId: number | undefined;
+/** Guards the async load callbacks below from running after unmount. */
+let cancelled = false;
 
 /** Heart centre in patient coords + the auto-derived base scale for the US volume. */
 let heartCentre = new THREE.Vector3();
@@ -158,6 +160,10 @@ onMounted(() => {
       ],
     },
     (controller) => {
+      if (cancelled) {
+        controller.dispose();
+        return;
+      }
       mriCtrl = controller;
       // The page owns the only clock — silence loadAligned4D's internal one.
       mriCtrl.pause();
@@ -189,6 +195,10 @@ onMounted(() => {
           },
         },
         (volume) => {
+          if (cancelled) {
+            volume.dispose();
+            return;
+          }
           usCtrl = volume;
           loading.value = false;
           lastTick = performance.now();
@@ -241,6 +251,12 @@ watch(renderStyle, (v) => usCtrl?.setRenderStyle(v));
 watch([usScale, rotX, rotY, rotZ, offX, offY, offZ], applyPose);
 
 onBeforeUnmount(() => {
+  cancelled = true;
+  // MUST run before mriCtrl.dispose(): commonSceneMethod's registry removes
+  // callbacks by splicing the raw cache array at `id`, which shifts every later
+  // id down by one. This clock is id 1; mriCtrl.dispose() removes id 0 internally.
+  // Removing the clock first is the only order that doesn't leave a stale,
+  // out-of-range id (and leak the callback) — see commonSceneMethod.ts.
   if (clockId !== undefined) scene?.removePreRenderCallbackFunction(clockId);
   usCtrl?.dispose();
   mriCtrl?.dispose();
