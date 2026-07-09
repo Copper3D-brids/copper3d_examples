@@ -65,6 +65,7 @@ interface Example {
 }
 
 const examples: Example[] = [
+  { id: 17, title: "MRI + LV + 4D Ultrasound", desc: "Cine MRI, deforming LV surfaces and a raycast 4D ultrasound volume, synced by cardiac phase.", tag: "Fusion", featured: true },
   { id: 16, title: "Surface Annotation", desc: "Draw contours (freehand & geodesic) and place fiducial points on a mesh surface; export JSON.", tag: "Annotate", featured: true },
   { id: 15, title: "4D MRI + LV Surfaces", desc: "Cine 4-chamber MRI aligned with deforming LV endo/epi surfaces, in lock-step.", tag: "4D", featured: true },
   { id: 1, title: "Multiple VTK Models", desc: "Load and morph VTK surface meshes inside a scene.", tag: "VTK" },
