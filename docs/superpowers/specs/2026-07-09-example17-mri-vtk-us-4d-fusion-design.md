@@ -1,4 +1,4 @@
-# Example 16 — MRI + VTK + 4D 超声波体渲染融合
+# Example 17 — MRI + VTK + 4D 超声波体渲染融合
 
 **日期：** 2026-07-09
 **基础：** `src/pages/example15_mri_lv_4d.vue`（已实现 MRI 切片 + VTK 心脏模型 4D 动画）
@@ -101,7 +101,7 @@ scene.loadRaw4DVolume(
 
 ---
 
-## 4. 页面 UI（`src/pages/example16_*.vue`）
+## 4. 页面 UI（`src/pages/example17_*.vue`）
 
 沿用 example15 的 `cu-panel` 铜金色面板风格。
 
@@ -129,7 +129,7 @@ scene.loadRaw4DVolume(
 
 - **`loadRaw4DVolume`（库）：** 只负责"把 .mhd/.raw 序列变成一个可控的体渲染对象"。输入 mhdUrls+pose，输出 controller。不知道 MRI、不知道时钟、不知道 Vue。
 - **`loadAligned4D`（库，已存在）：** MRI+VTK 序列，保持不变。
-- **`example16.vue`（页面）：** 编排者。负责加载顺序、算包围盒 pose、跑主相位时钟同步两个 controller、UI 绑定。
+- **`example17.vue`（页面）：** 编排者。负责加载顺序、算包围盒 pose、跑主相位时钟同步两个 controller、UI 绑定。
 
 每个单元可独立理解与测试。
 
