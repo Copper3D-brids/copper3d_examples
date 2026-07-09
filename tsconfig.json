@@ -23,5 +23,6 @@
     "src/**/*.vue",
     "dist/backup_code/nrrd_tool copy.ts"
   ],
+  "exclude": ["src/**/*.test.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
