@@ -12,6 +12,9 @@
       <label class="cu-field"><span>Speed</span>
         <input class="cu-range" type="range" min="0.25" max="3" step="0.25" v-model.number="speed" />
         <span class="cu-value">{{ speed.toFixed(2) }}×</span></label>
+      <p class="cu-hint">
+        {{ bpm }} bpm · R-R {{ CYCLE_MS }} ms (from DICOM). 1.00× is real time.
+      </p>
 
       <hr />
       <div class="cu-layers">
@@ -31,9 +34,13 @@
         <input class="cu-range" type="range" min="0" max="1" step="0.05" v-model.number="mriOpacity" />
         <span class="cu-value">{{ mriOpacity.toFixed(2) }}</span></label>
       <label class="cu-field"><span>Endo α</span>
-        <input class="cu-range" type="range" min="0" max="1" step="0.05" v-model.number="endoOpacity" />
+        <input class="cu-range" type="range" min="0" max="1" step="0.05" v-model.number="endoOpacity" :disabled="lvOnTop" />
         <span class="cu-value">{{ endoOpacity.toFixed(2) }}</span></label>
+      <label class="cu-field"><span>Epi α</span>
+        <input class="cu-range" type="range" min="0" max="1" step="0.05" v-model.number="epiOpacity" />
+        <span class="cu-value">{{ epiOpacity.toFixed(2) }}</span></label>
       <label class="cu-check"><input type="checkbox" v-model="showEpi" /> Epicardium</label>
+      <p v-if="lvOnTop" class="cu-hint">Endo α is pinned to 1.0 while the LV wireframe is on top.</p>
 
       <hr />
       <div class="cu-panel__title">Ultrasound (not registered)</div>
@@ -84,7 +91,7 @@
 <script setup lang="ts">
 import * as THREE from "three";
 import * as Copper from "../ts/index";
-import { onMounted, onBeforeUnmount, ref, watch } from "vue";
+import { onMounted, onBeforeUnmount, computed, ref, watch } from "vue";
 
 const MRI = "/copper3d_examples/heart_4d_animation/mri_4ch";
 const SURF = "/copper3d_examples/heart_4d_animation/surfaces_lv";
@@ -120,7 +127,15 @@ const playing = ref(true);
 const speed = ref(1);
 const mriOpacity = ref(0.9);
 const endoOpacity = ref(0.85);
+const epiOpacity = ref(0.25);
 const showEpi = ref(true);
+
+/**
+ * The DICOM declares NominalInterval (R-R) = 1012 ms, and its 32 TriggerTimes are spaced
+ * 31.63 ms apart spanning 980.4 ms — so CYCLE_MS is the patient's real cardiac period.
+ * At 1.00x this plays back in real time (59.3 bpm), not at an arbitrary rate.
+ */
+const bpm = computed(() => Math.round((60000 * speed.value) / CYCLE_MS));
 
 // Layer toggles. `showEpi` composes with `showModel`: the epicardium is only drawn when
 // the model layer as a whole is on.
@@ -376,6 +391,12 @@ function syncVisibility() {
 /**
  * The ultrasound MIP is an opaque cloud with no visible chambers, so — exactly as the
  * reference render does — draw the LV as a wireframe on top of it to show where the heart is.
+ *
+ * `renderOrder` alone is enough, and `depthTest` MUST stay on. The volume's material is
+ * `depthWrite: false`, so it never writes into the depth buffer; drawing the LV after it
+ * (renderOrder 20 > 10) therefore puts the wireframe over the cloud while still letting the
+ * MRI plane — which does write depth — occlude the half of the LV that sits behind it.
+ * Disabling depthTest here made the LV punch through the MRI plane.
  */
 function syncLvOverlay() {
   const endoMesh = mriCtrl?.surfaceMeshes.endo;
@@ -383,7 +404,6 @@ function syncLvOverlay() {
   const material = endoMesh.material as THREE.MeshStandardMaterial;
   const on = lvOnTop.value;
   material.wireframe = on;
-  material.depthTest = !on;
   material.opacity = on ? 1 : endoOpacity.value;
   material.needsUpdate = true;
   // Volume draws at renderOrder 10; go above it so the wireframe survives the cloud.
@@ -393,6 +413,7 @@ function syncLvOverlay() {
 watch(speed, () => (lastTick = performance.now()));
 watch(mriOpacity, (v) => mriCtrl?.setPlaneOpacity(v));
 watch(endoOpacity, (v) => !lvOnTop.value && mriCtrl?.setSurfaceOpacity("endo", v));
+watch(epiOpacity, (v) => mriCtrl?.setSurfaceOpacity("epi", v));
 watch(lvOnTop, syncLvOverlay);
 
 watch([showMri, showModel, showEpi, showUs], syncVisibility);
