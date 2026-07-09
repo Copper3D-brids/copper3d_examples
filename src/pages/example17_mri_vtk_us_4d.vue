@@ -400,14 +400,21 @@ function syncVisibility() {
  */
 function syncLvOverlay() {
   const endoMesh = mriCtrl?.surfaceMeshes.endo;
-  if (!endoMesh) return;
+  const epiMesh = mriCtrl?.surfaceMeshes.epi;
+  if (!endoMesh || !epiMesh) return;
+
   const material = endoMesh.material as THREE.MeshStandardMaterial;
   const on = lvOnTop.value;
   material.wireframe = on;
   material.opacity = on ? 1 : endoOpacity.value;
   material.needsUpdate = true;
-  // Volume draws at renderOrder 10; go above it so the wireframe survives the cloud.
+
+  // The volume draws at renderOrder 10, so both surfaces must go above it to survive the
+  // cloud. Raise BOTH and keep their relative order (endo before epi, as loadAligned4D
+  // sets up): epi is transparent but still depthWrite:true, so if it drew first it would
+  // write depth at its outer shell and discard the endo sitting inside it.
   endoMesh.renderOrder = on ? 20 : 1;
+  epiMesh.renderOrder = on ? 21 : 2;
 }
 
 watch(speed, () => (lastTick = performance.now()));
