@@ -43,7 +43,9 @@
       <p v-if="lvOnTop" class="cu-hint">Endo α is pinned to 1.0 while the LV wireframe is on top.</p>
 
       <hr />
-      <div class="cu-panel__title">Ultrasound (not registered)</div>
+      <div class="cu-panel__title">
+        Ultrasound {{ usRegistered ? "(registered from .mhd)" : "(not registered)" }}
+      </div>
       <label class="cu-field"><span>US α</span>
         <input class="cu-range" type="range" min="0" max="1" step="0.05" v-model.number="usOpacity" />
         <span class="cu-value">{{ usOpacity.toFixed(2) }}</span></label>
@@ -62,7 +64,20 @@
       <p class="cu-hint">Volume max sample ≈ 0.70 — a clim hi above that renders nothing.</p>
 
       <hr />
+      <template v-if="usRegistered">
+        <div class="cu-panel__title">US pose (from .mhd)</div>
+        <p class="cu-hint">
+          Placed by the header's Offset / TransformMatrix / ElementSpacing. Manual pose is
+          disabled — the file already says where this volume belongs.
+        </p>
+      </template>
+      <template v-else>
       <div class="cu-panel__title">US pose (manual)</div>
+      <p class="cu-hint">
+        The .mhd carries no Offset or TransformMatrix, so nothing in the data says where this
+        cone belongs. The pose below is anchored to the LV long axis — a best-effort guess,
+        <strong>not</strong> an anatomical registration.
+      </p>
       <label class="cu-field"><span>Scale</span>
         <input class="cu-range" type="range" min="0.3" max="3" step="0.05" v-model.number="usScale" />
         <span class="cu-value">{{ usScale.toFixed(2) }}×</span></label>
@@ -84,6 +99,7 @@
       <label class="cu-field"><span>Off Z</span>
         <input class="cu-range" type="range" min="-100" max="100" step="1" v-model.number="offZ" />
         <span class="cu-value">{{ offZ }}</span></label>
+      </template>
     </div>
   </div>
 </template>
@@ -150,6 +166,8 @@ const climHi = ref(0.55);
 const renderStyle = ref<"mip" | "iso">("mip");
 /** Draw the LV as a wireframe over the cloud — the ultrasound alone shows no chambers. */
 const lvOnTop = ref(true);
+/** True only when the .mhd placed the volume itself (real Offset/TransformMatrix). */
+const usRegistered = ref(false);
 
 const usScale = ref(1);
 const rotX = ref(0);
@@ -314,6 +332,7 @@ onMounted(() => {
             return;
           }
           usCtrl = volume;
+          usRegistered.value = volume.registered;
           loading.value = false;
           syncVisibility();
           lastTick = performance.now();
