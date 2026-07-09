@@ -192,7 +192,11 @@ onMounted(() => {
           usCtrl = volume;
           loading.value = false;
           lastTick = performance.now();
-          clockId = scene?.addPreRenderCallbackFunction(tick);
+          scene?.addPreRenderCallbackFunction(tick);
+          // NOTE: addPreRenderCallbackFunction always returns 0 — commonSceneMethod's
+          // `index` is never incremented. The real id is stamped onto the function.
+          // loadAligned4D works around this the same way (copperScene.ts:438).
+          clockId = (tick as any).id as number;
         }
       );
     }
@@ -208,7 +212,8 @@ function tick() {
   }
   phase = (phase + (now - lastTick) / (CYCLE_MS / speed.value)) % 1;
   lastTick = now;
-  mriCtrl?.setFrame(Math.floor(phase * MRI_FRAMES));
+  // Each modality maps the shared phase onto its OWN frame count (32 vs 21).
+  if (mriCtrl) mriCtrl.setFrame(Math.floor(phase * mriCtrl.frameCount));
   usCtrl?.setPhase(phase);
 }
 
