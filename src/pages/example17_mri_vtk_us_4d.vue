@@ -57,9 +57,23 @@
         <span class="cu-value">{{ climHi.toFixed(2) }}</span></label>
       <label class="cu-field"><span>Style</span>
         <select class="cu-select" v-model="renderStyle">
+          <option value="dvr">DVR</option>
           <option value="mip">MIP</option>
           <option value="iso">ISO</option>
         </select></label>
+      <label v-if="renderStyle === 'dvr'" class="cu-field"><span>Density</span>
+        <input class="cu-range" type="range" min="0.01" max="0.5" step="0.01" v-model.number="dvrDensity" />
+        <span class="cu-value">{{ dvrDensity.toFixed(2) }}</span></label>
+      <label v-if="renderStyle === 'dvr'" class="cu-field"><span>Gain</span>
+        <input class="cu-range" type="range" min="0.5" max="5" step="0.1" v-model.number="dvrGain" />
+        <span class="cu-value">{{ dvrGain.toFixed(1) }}</span></label>
+      <p v-if="renderStyle === 'dvr'" class="cu-hint">
+        The LV blood pool sits near 0.13, so raise <em>clim lo</em> until the chamber goes dark.
+      </p>
+      <p v-if="renderStyle === 'mip'" class="cu-hint">
+        MIP takes the maximum along each ray, so a dark chamber ringed by bright tissue can
+        never appear. Switch to DVR to see inside the heart.
+      </p>
       <label class="cu-check"><input type="checkbox" v-model="lvOnTop" /> LV wireframe over volume</label>
       <p class="cu-hint">Volume max sample ≈ 0.70 — a clim hi above that renders nothing.</p>
 
@@ -160,10 +174,15 @@ const showModel = ref(true);
 const showUs = ref(true);
 const usOpacity = ref(0.9);
 // The volume's maximum sample is 178/255 = 0.698; a window above that renders nothing.
-// [0.01, 0.55] tuned at the display — keeps the faint speckle, spreads the mid-tones.
-const climLo = ref(0.01);
+// DVR needs a floor above the blood pool (~0.13 normalised) for the chamber to read as dark.
+// MIP prefers a lower floor (~0.01) to keep the faint speckle.
+const climLo = ref(0.1);
 const climHi = ref(0.55);
-const renderStyle = ref<"mip" | "iso">("mip");
+// DVR by default: MIP cannot show the LV chamber (max() always picks the bright speckle
+// in front of it), which is why the reference render is a composite, not a MIP.
+const renderStyle = ref<"mip" | "iso" | "dvr">("dvr");
+const dvrDensity = ref(0.25);
+const dvrGain = ref(2.5);
 /** Draw the LV as a wireframe over the cloud — the ultrasound alone shows no chambers. */
 const lvOnTop = ref(true);
 /** True only when the .mhd placed the volume itself (real Offset/TransformMatrix). */
@@ -318,6 +337,8 @@ onMounted(() => {
             scale: baseScale,
           },
           renderStyle: renderStyle.value,
+          dvrDensity: dvrDensity.value,
+          dvrGain: dvrGain.value,
           clim: [climLo.value, climHi.value],
           opacity: usOpacity.value,
           onProgress: (n) => (usLoaded.value = n),
@@ -447,6 +468,8 @@ watch([showMri, showModel, showEpi, showUs], syncVisibility);
 watch(usOpacity, (v) => usCtrl?.setOpacity(v));
 watch([climLo, climHi], ([lo, hi]) => usCtrl?.setClim(lo, hi));
 watch(renderStyle, (v) => usCtrl?.setRenderStyle(v));
+watch(dvrDensity, (v) => usCtrl?.setDvrDensity(v));
+watch(dvrGain, (v) => usCtrl?.setDvrGain(v));
 watch([usScale, rotX, rotY, rotZ, offX, offY, offZ], applyPose);
 
 onBeforeUnmount(() => {
