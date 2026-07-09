@@ -39,6 +39,8 @@
           <option value="mip">MIP</option>
           <option value="iso">ISO</option>
         </select></label>
+      <label class="cu-check"><input type="checkbox" v-model="lvOnTop" /> LV wireframe over volume</label>
+      <p class="cu-hint">Volume max sample ≈ 0.70 — a clim hi above that renders nothing.</p>
 
       <hr />
       <div class="cu-panel__title">US pose (manual)</div>
@@ -81,10 +83,19 @@ const MRI_FRAMES = 32;
 const US_FRAMES = 21;
 /** One cardiac cycle (32 phases x ~31.6 ms). */
 const CYCLE_MS = 1012;
-/** Longest axis of the ultrasound volume (DimSize = 189 189 134). */
-const US_LONGEST_AXIS = 189;
-/** The US cone covers more than the LV, so start a bit larger than the LV bbox. */
-const US_COVERAGE = 1.8;
+
+/**
+ * Ultrasound geometry, measured from the .raw voxels (DimSize = 189 189 134):
+ * the fan is symmetric about the X and Y centres, while its cross-sectional area grows
+ * monotonically along Z (first-quarter vs last-quarter occupancy ratio 8.5). So the cone
+ * axis is local +Z, with the apex (the transducer) at z = 0 and the mouth at z = 133.
+ */
+const US_DEPTH_VOXELS = 134;
+const US_LOCAL_AXIS = new THREE.Vector3(0, 0, 1);
+/** Cone depth as a multiple of the LV long-axis length (measured 107.6 mm). */
+const US_COVERAGE = 1.6;
+/** Where the LV apex sits along the cone, as a fraction of cone depth from the apex. */
+const US_APEX_MARGIN = 0.25;
 
 const pad3 = (n: number) => String(n).padStart(3, "0");
 const deg2rad = (d: number) => (d * Math.PI) / 180;
@@ -101,9 +112,12 @@ const showEpi = ref(true);
 
 const showUs = ref(true);
 const usOpacity = ref(0.9);
-const climLo = ref(0.2);
-const climHi = ref(0.9);
+// The volume's maximum sample is 178/255 = 0.698; a window above that renders nothing.
+const climLo = ref(0.08);
+const climHi = ref(0.7);
 const renderStyle = ref<"mip" | "iso">("mip");
+/** Draw the LV as a wireframe over the cloud — the ultrasound alone shows no chambers. */
+const lvOnTop = ref(true);
 
 const usScale = ref(1);
 const rotX = ref(0);
@@ -121,9 +135,78 @@ let clockId: number | undefined;
 /** Guards the async load callbacks below from running after unmount. */
 let cancelled = false;
 
-/** Heart centre in patient coords + the auto-derived base scale for the US volume. */
-let heartCentre = new THREE.Vector3();
+/** Auto-derived initial pose for the (unregistered) US cone, in patient coords. */
+let baseCentre = new THREE.Vector3();
+let baseQuat = new THREE.Quaternion();
 let baseScale = 1;
+
+/**
+ * Principal axis of a mesh, oriented apex -> base.
+ *
+ * The LV is a prolate shell, so its dominant covariance eigenvector is the long axis
+ * (power iteration converges in a few dozen steps). The two ends are told apart by mean
+ * perpendicular radius: the apex is the pointy one (measured 12.5 mm vs 24.0 mm at the base).
+ */
+function lvLongAxis(mesh: THREE.Mesh) {
+  const pos = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
+  const n = pos.count;
+
+  const centre = new THREE.Vector3();
+  const p = new THREE.Vector3();
+  for (let i = 0; i < n; i++) centre.add(p.fromBufferAttribute(pos, i));
+  centre.divideScalar(n);
+
+  let xx = 0, xy = 0, xz = 0, yy = 0, yz = 0, zz = 0;
+  for (let i = 0; i < n; i++) {
+    p.fromBufferAttribute(pos, i).sub(centre);
+    xx += p.x * p.x; xy += p.x * p.y; xz += p.x * p.z;
+    yy += p.y * p.y; yz += p.y * p.z; zz += p.z * p.z;
+  }
+
+  let axis = new THREE.Vector3(1, 1, 1).normalize();
+  const next = new THREE.Vector3();
+  for (let it = 0; it < 128; it++) {
+    next.set(
+      xx * axis.x + xy * axis.y + xz * axis.z,
+      xy * axis.x + yy * axis.y + yz * axis.z,
+      xz * axis.x + yz * axis.y + zz * axis.z
+    );
+    axis.copy(next).normalize();
+  }
+
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const t = p.fromBufferAttribute(pos, i).sub(centre).dot(axis);
+    lo = Math.min(lo, t);
+    hi = Math.max(hi, t);
+  }
+
+  // Mean perpendicular radius within the outer 20% of each end.
+  const meanRadius = (t0: number, t1: number) => {
+    let sum = 0;
+    let count = 0;
+    for (let i = 0; i < n; i++) {
+      p.fromBufferAttribute(pos, i).sub(centre);
+      const t = p.dot(axis);
+      if (t >= t0 && t <= t1) {
+        sum += p.addScaledVector(axis, -t).length();
+        count++;
+      }
+    }
+    return count ? sum / count : Infinity;
+  };
+  const span = hi - lo;
+  if (meanRadius(hi - 0.2 * span, hi) < meanRadius(lo, lo + 0.2 * span)) {
+    // The `hi` end is the pointy one — flip so the axis runs apex -> base.
+    axis.negate();
+    const swap = -hi;
+    hi = -lo;
+    lo = swap;
+  }
+
+  return { axis, apex: centre.clone().addScaledVector(axis, lo), length: span };
+}
 
 /** Normalised cardiac phase, shared by every modality. */
 let phase = 0;
@@ -170,19 +253,18 @@ onMounted(() => {
       mriCtrl.setPlaneOpacity(mriOpacity.value);
       scene?.loadViewUrl(VIEW);
 
-      // Anchor the (unregistered) ultrasound to where the heart actually is.
-      const box = new THREE.Box3();
-      Object.values(mriCtrl.surfaceMeshes).forEach((m) => box.expandByObject(m));
-      box.getCenter(heartCentre);
-      const size = box.getSize(new THREE.Vector3());
-      baseScale = (Math.max(size.x, size.y, size.z) * US_COVERAGE) / US_LONGEST_AXIS;
+      // Anchor the (unregistered) ultrasound to the heart's real geometry: point the cone
+      // down the LV long axis, apex-first, sized so the LV sits inside the fan. This is a
+      // best-effort initial pose derived from the surfaces — NOT an anatomical registration.
+      applyLvAnchor(mriCtrl.surfaceMeshes.endo);
+      syncLvOverlay();
 
       scene?.loadRaw4DVolume(
         mhdUrls,
         {
           transform: {
-            position: [heartCentre.x, heartCentre.y, heartCentre.z],
-            rotation: [0, 0, 0],
+            position: [baseCentre.x, baseCentre.y, baseCentre.z],
+            quaternion: [baseQuat.x, baseQuat.y, baseQuat.z, baseQuat.w],
             scale: baseScale,
           },
           renderStyle: renderStyle.value,
@@ -231,18 +313,61 @@ function togglePlay() {
   playing.value = !playing.value;
 }
 
+/**
+ * Derive the cone's initial pose from the LV surface.
+ *
+ * The cone axis is local +Z with its apex at z = 0, so rotate local +Z onto the LV
+ * apex->base direction, back the apex off by `US_APEX_MARGIN` of the cone depth, and scale
+ * so the cone is `US_COVERAGE` times the LV long axis. `root`'s origin is the volume centre,
+ * hence the half-depth push along the axis.
+ */
+function applyLvAnchor(endoMesh: THREE.Mesh) {
+  const { axis, apex, length } = lvLongAxis(endoMesh);
+  const coneDepth = US_COVERAGE * length;
+
+  baseScale = coneDepth / (US_DEPTH_VOXELS - 1);
+  baseQuat = new THREE.Quaternion().setFromUnitVectors(US_LOCAL_AXIS, axis);
+  baseCentre = apex
+    .clone()
+    .addScaledVector(axis, -US_APEX_MARGIN * coneDepth) // cone apex, just outside the LV apex
+    .addScaledVector(axis, coneDepth / 2); // ...then forward to the cone's centre
+}
+
+/** Slider rotation is applied *on top of* the measured base orientation. */
 function applyPose() {
+  const spin = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(deg2rad(rotX.value), deg2rad(rotY.value), deg2rad(rotZ.value))
+  );
+  const q = baseQuat.clone().multiply(spin);
   usCtrl?.setTransform({
-    position: [heartCentre.x + offX.value, heartCentre.y + offY.value, heartCentre.z + offZ.value],
-    rotation: [deg2rad(rotX.value), deg2rad(rotY.value), deg2rad(rotZ.value)],
+    position: [baseCentre.x + offX.value, baseCentre.y + offY.value, baseCentre.z + offZ.value],
+    quaternion: [q.x, q.y, q.z, q.w],
     scale: baseScale * usScale.value,
   });
 }
 
+/**
+ * The ultrasound MIP is an opaque cloud with no visible chambers, so — exactly as the
+ * reference render does — draw the LV as a wireframe on top of it to show where the heart is.
+ */
+function syncLvOverlay() {
+  const endoMesh = mriCtrl?.surfaceMeshes.endo;
+  if (!endoMesh) return;
+  const material = endoMesh.material as THREE.MeshStandardMaterial;
+  const on = lvOnTop.value;
+  material.wireframe = on;
+  material.depthTest = !on;
+  material.opacity = on ? 1 : endoOpacity.value;
+  material.needsUpdate = true;
+  // Volume draws at renderOrder 10; go above it so the wireframe survives the cloud.
+  endoMesh.renderOrder = on ? 20 : 1;
+}
+
 watch(speed, () => (lastTick = performance.now()));
 watch(mriOpacity, (v) => mriCtrl?.setPlaneOpacity(v));
-watch(endoOpacity, (v) => mriCtrl?.setSurfaceOpacity("endo", v));
+watch(endoOpacity, (v) => !lvOnTop.value && mriCtrl?.setSurfaceOpacity("endo", v));
 watch(showEpi, (v) => mriCtrl?.setSurfaceVisible("epi", v));
+watch(lvOnTop, syncLvOverlay);
 
 watch(showUs, (v) => usCtrl && (usCtrl.root.visible = v));
 watch(usOpacity, (v) => usCtrl?.setOpacity(v));
@@ -281,6 +406,11 @@ onBeforeUnmount(() => {
   margin: 0 0 6px;
   font-size: 12px;
   color: #ff7a7a;
+}
+.cu-hint {
+  margin: 2px 0 6px;
+  font-size: 11px;
+  opacity: 0.55;
 }
 .cu-select {
   background: rgba(0, 0, 0, 0.4);
