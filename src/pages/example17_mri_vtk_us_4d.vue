@@ -365,11 +365,7 @@ onMounted(() => {
           loading.value = false;
           syncVisibility();
           lastTick = performance.now();
-          scene?.addPreRenderCallbackFunction(tick);
-          // NOTE: addPreRenderCallbackFunction always returns 0 — commonSceneMethod's
-          // `index` is never incremented. The real id is stamped onto the function.
-          // loadAligned4D works around this the same way (copperScene.ts:438).
-          clockId = (tick as any).id as number;
+          clockId = scene?.addPreRenderCallbackFunction(tick);
         }
       );
     }
@@ -482,11 +478,6 @@ watch([usScale, rotX, rotY, rotZ, offX, offY, offZ], applyPose);
 
 onBeforeUnmount(() => {
   cancelled = true;
-  // MUST run before mriCtrl.dispose(): commonSceneMethod's registry removes
-  // callbacks by splicing the raw cache array at `id`, which shifts every later
-  // id down by one. This clock is id 1; mriCtrl.dispose() removes id 0 internally.
-  // Removing the clock first is the only order that doesn't leave a stale,
-  // out-of-range id (and leak the callback) — see commonSceneMethod.ts.
   if (clockId !== undefined) scene?.removePreRenderCallbackFunction(clockId);
   usCtrl?.dispose();
   mriCtrl?.dispose();
