@@ -144,8 +144,9 @@ const showModel = ref(true);
 const showUs = ref(true);
 const usOpacity = ref(0.9);
 // The volume's maximum sample is 178/255 = 0.698; a window above that renders nothing.
-const climLo = ref(0.08);
-const climHi = ref(0.7);
+// [0.01, 0.55] tuned at the display — keeps the faint speckle, spreads the mid-tones.
+const climLo = ref(0.01);
+const climHi = ref(0.55);
 const renderStyle = ref<"mip" | "iso">("mip");
 /** Draw the LV as a wireframe over the cloud — the ultrasound alone shows no chambers. */
 const lvOnTop = ref(true);
