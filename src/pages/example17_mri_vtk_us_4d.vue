@@ -14,6 +14,19 @@
         <span class="cu-value">{{ speed.toFixed(2) }}×</span></label>
 
       <hr />
+      <div class="cu-layers">
+        <button class="cu-chip" :class="{ 'cu-chip--on': showMri }" @click="showMri = !showMri">
+          MRI
+        </button>
+        <button class="cu-chip" :class="{ 'cu-chip--on': showModel }" @click="showModel = !showModel">
+          Model
+        </button>
+        <button class="cu-chip" :class="{ 'cu-chip--on': showUs }" @click="showUs = !showUs">
+          Ultrasound
+        </button>
+      </div>
+
+      <hr />
       <label class="cu-field"><span>MRI α</span>
         <input class="cu-range" type="range" min="0" max="1" step="0.05" v-model.number="mriOpacity" />
         <span class="cu-value">{{ mriOpacity.toFixed(2) }}</span></label>
@@ -24,7 +37,6 @@
 
       <hr />
       <div class="cu-panel__title">Ultrasound (not registered)</div>
-      <label class="cu-check"><input type="checkbox" v-model="showUs" /> Show volume</label>
       <label class="cu-field"><span>US α</span>
         <input class="cu-range" type="range" min="0" max="1" step="0.05" v-model.number="usOpacity" />
         <span class="cu-value">{{ usOpacity.toFixed(2) }}</span></label>
@@ -110,6 +122,10 @@ const mriOpacity = ref(0.9);
 const endoOpacity = ref(0.85);
 const showEpi = ref(true);
 
+// Layer toggles. `showEpi` composes with `showModel`: the epicardium is only drawn when
+// the model layer as a whole is on.
+const showMri = ref(true);
+const showModel = ref(true);
 const showUs = ref(true);
 const usOpacity = ref(0.9);
 // The volume's maximum sample is 178/255 = 0.698; a window above that renders nothing.
@@ -283,6 +299,7 @@ onMounted(() => {
           }
           usCtrl = volume;
           loading.value = false;
+          syncVisibility();
           lastTick = performance.now();
           scene?.addPreRenderCallbackFunction(tick);
           // NOTE: addPreRenderCallbackFunction always returns 0 — commonSceneMethod's
@@ -346,6 +363,16 @@ function applyPose() {
   });
 }
 
+/** Layer toggles: MRI plane, LV model (endo + epi), ultrasound volume. */
+function syncVisibility() {
+  if (mriCtrl) {
+    mriCtrl.plane.visible = showMri.value;
+    mriCtrl.setSurfaceVisible("endo", showModel.value);
+    mriCtrl.setSurfaceVisible("epi", showModel.value && showEpi.value);
+  }
+  if (usCtrl) usCtrl.root.visible = showUs.value;
+}
+
 /**
  * The ultrasound MIP is an opaque cloud with no visible chambers, so — exactly as the
  * reference render does — draw the LV as a wireframe on top of it to show where the heart is.
@@ -366,10 +393,9 @@ function syncLvOverlay() {
 watch(speed, () => (lastTick = performance.now()));
 watch(mriOpacity, (v) => mriCtrl?.setPlaneOpacity(v));
 watch(endoOpacity, (v) => !lvOnTop.value && mriCtrl?.setSurfaceOpacity("endo", v));
-watch(showEpi, (v) => mriCtrl?.setSurfaceVisible("epi", v));
 watch(lvOnTop, syncLvOverlay);
 
-watch(showUs, (v) => usCtrl && (usCtrl.root.visible = v));
+watch([showMri, showModel, showEpi, showUs], syncVisibility);
 watch(usOpacity, (v) => usCtrl?.setOpacity(v));
 watch([climLo, climHi], ([lo, hi]) => usCtrl?.setClim(lo, hi));
 watch(renderStyle, (v) => usCtrl?.setRenderStyle(v));
@@ -411,6 +437,32 @@ onBeforeUnmount(() => {
   margin: 2px 0 6px;
   font-size: 11px;
   opacity: 0.55;
+}
+.cu-layers {
+  display: flex;
+  gap: 6px;
+}
+.cu-chip {
+  flex: 1;
+  cursor: pointer;
+  padding: 5px 4px;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(230, 220, 200, 0.5);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(200, 160, 90, 0.25);
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.cu-chip:hover {
+  color: rgba(230, 220, 200, 0.8);
+  border-color: rgba(200, 160, 90, 0.5);
+}
+.cu-chip--on {
+  color: #1a1408;
+  background: linear-gradient(180deg, #e8b86a, #c8933f);
+  border-color: rgba(232, 184, 106, 0.9);
 }
 .cu-select {
   background: rgba(0, 0, 0, 0.4);
