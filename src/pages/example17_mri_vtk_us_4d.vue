@@ -33,6 +33,19 @@
       <label class="cu-field"><span>MRI α</span>
         <input class="cu-range" type="range" min="0" max="1" step="0.05" v-model.number="mriOpacity" />
         <span class="cu-value">{{ mriOpacity.toFixed(2) }}</span></label>
+      <label class="cu-field"><span>MRI gain</span>
+        <input class="cu-range" type="range" min="0.5" max="2.5" step="0.05" v-model.number="mriBrightness" />
+        <span class="cu-value">{{ mriBrightness.toFixed(2) }}</span></label>
+      <label class="cu-field"><span>WC</span>
+        <input class="cu-range" type="range" min="50" max="500" step="1" v-model.number="mriWindowCenter" />
+        <span class="cu-value">{{ mriWindowCenter }}</span></label>
+      <label class="cu-field"><span>WW</span>
+        <input class="cu-range" type="range" min="50" max="900" step="1" v-model.number="mriWindowWidth" />
+        <span class="cu-value">{{ mriWindowWidth }}</span></label>
+      <p class="cu-hint">
+        Blacks look grey when WC − WW/2 &lt; 0: raw black then maps above 0 and nothing can
+        render black. Here that floor is {{ (mriWindowCenter - mriWindowWidth / 2).toFixed(1) }}.
+      </p>
       <label class="cu-field"><span>Endo α</span>
         <input class="cu-range" type="range" min="0" max="1" step="0.05" v-model.number="endoOpacity" :disabled="lvOnTop" />
         <span class="cu-value">{{ endoOpacity.toFixed(2) }}</span></label>
@@ -136,6 +149,14 @@ const US_FRAMES = 21;
 const CYCLE_MS = 1012;
 
 /**
+ * The DICOM's own window (centre 226, width 537) has a lower bound of -42.5. MR samples are
+ * never negative, so raw black already lands at 20/255 and nothing can render black. Keeping
+ * the same ceiling (494.5) but flooring the window at 0 makes 2.8% of the image true black.
+ */
+const MRI_WINDOW_CENTER = 247;
+const MRI_WINDOW_WIDTH = 494;
+
+/**
  * Ultrasound geometry, measured from the .raw voxels (DimSize = 189 189 134):
  * the fan is symmetric about the X and Y centres, while its cross-sectional area grows
  * monotonically along Z (first-quarter vs last-quarter occupancy ratio 8.5). So the cone
@@ -158,6 +179,9 @@ const usError = ref("");
 const playing = ref(true);
 const speed = ref(1);
 const mriOpacity = ref(0.9);
+const mriBrightness = ref(1.0); // 1.5 was hard-coded in the shader; 1.0 is faithful
+const mriWindowCenter = ref(MRI_WINDOW_CENTER);
+const mriWindowWidth = ref(MRI_WINDOW_WIDTH);
 const endoOpacity = ref(0.85);
 const epiOpacity = ref(0.25);
 const showEpi = ref(true);
@@ -310,6 +334,11 @@ onMounted(() => {
   scene.loadAligned4D(
     {
       dicomUrls,
+      // The DICOM declares WindowCenter 226 / WindowWidth 537, i.e. a lower bound of -42.5.
+      // MR samples are never negative, so the darkest possible pixel (0) already maps to
+      // 20/255 and NO pixel can ever render black. Re-floor the window at 0: same ceiling,
+      // but 2.8% of the image now reaches true black.
+      window: { center: MRI_WINDOW_CENTER, width: MRI_WINDOW_WIDTH },
       surfaces: [
         { name: "endo", urls: endo, opts: { color: 0xff5a6e, transparent: true, opacity: 0.85 } },
         { name: "epi", urls: epi, opts: { color: 0x4ea1ff, transparent: true, opacity: 0.25 } },
@@ -324,6 +353,7 @@ onMounted(() => {
       // The page owns the only clock — silence loadAligned4D's internal one.
       mriCtrl.pause();
       mriCtrl.setPlaneOpacity(mriOpacity.value);
+      mriCtrl.setPlaneBrightness(mriBrightness.value);
       scene?.loadViewUrl(VIEW);
 
       // Anchor the (unregistered) ultrasound to the heart's real geometry: point the cone
@@ -464,6 +494,8 @@ function syncLvOverlay() {
 
 watch(speed, () => (lastTick = performance.now()));
 watch(mriOpacity, (v) => mriCtrl?.setPlaneOpacity(v));
+watch(mriBrightness, (v) => mriCtrl?.setPlaneBrightness(v));
+watch([mriWindowCenter, mriWindowWidth], ([c, w]) => mriCtrl?.setWindow(c, w));
 watch(endoOpacity, (v) => !lvOnTop.value && mriCtrl?.setSurfaceOpacity("endo", v));
 watch(epiOpacity, (v) => mriCtrl?.setSurfaceOpacity("epi", v));
 watch(lvOnTop, syncLvOverlay);
