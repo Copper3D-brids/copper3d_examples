@@ -81,8 +81,9 @@
       <template v-if="usRegistered">
         <div class="cu-panel__title">US pose (from .mhd)</div>
         <p class="cu-hint">
-          Placed by the header's Offset / TransformMatrix / ElementSpacing. Manual pose is
-          disabled — the file already says where this volume belongs.
+          Placed by the header's Offset / TransformMatrix / ElementSpacing, and its
+          FrameOfReferenceUID matches the MRI's — the two share a world frame. Manual pose is
+          disabled: the file already says where this volume belongs.
         </p>
       </template>
       <template v-else>
@@ -90,7 +91,8 @@
       <p class="cu-hint">
         The .mhd carries no Offset or TransformMatrix, so nothing in the data says where this
         cone belongs. The pose below is anchored to the LV long axis — a best-effort guess,
-        <strong>not</strong> an anatomical registration.
+        <strong>not</strong> an anatomical registration. Image registration was attempted and
+        failed: the echo contains no isolated LV cavity to lock onto.
       </p>
       <label class="cu-field"><span>Scale</span>
         <input class="cu-range" type="range" min="0.3" max="3" step="0.05" v-model.number="usScale" />
@@ -187,6 +189,8 @@ const dvrGain = ref(2.5);
 const lvOnTop = ref(true);
 /** True only when the .mhd placed the volume itself (real Offset/TransformMatrix). */
 const usRegistered = ref(false);
+/** True only when the .mhd's FrameOfReferenceUID matched the MRI's. */
+const usFrameVerified = ref(false);
 
 const usScale = ref(1);
 const rotX = ref(0);
@@ -346,6 +350,9 @@ onMounted(() => {
             usError.value = err.message;
             loading.value = false;
           },
+          // A pose expressed in another scanner's coordinate frame is worse than no pose, so
+          // the loader honours the .mhd's placement only if the file names this same frame.
+          expectFrameOfReferenceUID: mriCtrl.frameOfReferenceUID,
         },
         (volume) => {
           if (cancelled) {
@@ -354,6 +361,7 @@ onMounted(() => {
           }
           usCtrl = volume;
           usRegistered.value = volume.registered;
+          usFrameVerified.value = volume.frameVerified;
           loading.value = false;
           syncVisibility();
           lastTick = performance.now();
