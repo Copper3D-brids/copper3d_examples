@@ -396,10 +396,10 @@ concat-stream@^1.5.2:
     readable-stream "^2.2.2"
     typedarray "^0.0.6"
 
-copper3d@^3.6.9:
-  version "3.6.9"
-  resolved "https://registry.yarnpkg.com/copper3d/-/copper3d-3.6.9.tgz#efca5375d1ee342ff18b9c319b11c7c5ec608d89"
-  integrity sha512-7fX7o/ij4j1iC+bPULKAK3pPEJBIXCjJ/Rx8D7xfBIZT+SqyQIp9JqDlhpTMsoE0FsYfegfcBV32+y/S/jwyuQ==
+copper3d@^3.7.0:
+  version "3.7.0"
+  resolved "https://registry.yarnpkg.com/copper3d/-/copper3d-3.7.0.tgz#3a24de6ff2452e973db1b97efa9a94e8d5fcf714"
+  integrity sha512-cAQcl10L9OiRMva3Y29MQwEZhUvoyFTWaogAMXX5kktVQ8lV8wvjQ16JmvRfs9sDwXGFKkKGeRUGpvEEr1A77w==
   dependencies:
     "@types/dat.gui" "^0.7.9"
     "@types/three" "^0.169.0"

@@ -135,7 +135,7 @@
 
 <script setup lang="ts">
 import * as THREE from "three";
-import * as Copper from "../ts/index";
+import * as Copper from "copper3d";
 import { onMounted, onBeforeUnmount, computed, ref, watch } from "vue";
 
 const MRI = "/copper3d_examples/heart_4d_animation/mri_4ch";
