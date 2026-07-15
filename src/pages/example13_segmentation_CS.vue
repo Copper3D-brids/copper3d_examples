@@ -335,10 +335,9 @@ function loadModel(name: string) {
           scene?.removePreRenderCallbackFunction(index);
         }, 1000);
         setTimeout(() => {
-          if ((a as any).id) {
-            (a as any).id = undefined;
-          }
-
+          // The registry no longer stamps an `id` onto the function, so the old
+          // `(a as any).id = undefined` reset is gone: ids come from a counter and
+          // addPreRenderCallbackFunction returns the real one.
           index = scene?.addPreRenderCallbackFunction(() => {
             console.log("dssadsa");
           }) as number;

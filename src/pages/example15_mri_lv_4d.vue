@@ -27,8 +27,8 @@
 import * as Copper from "copper3d";
 import { onMounted, onBeforeUnmount, ref, watch } from "vue";
 
-const BASE = "/copper3d_examples/mri_4ch";
-const SURF = "/copper3d_examples/surfaces_lv";
+const BASE = "/copper3d_examples/heart_4d_animation/mri_4ch";
+const SURF = "/copper3d_examples/heart_4d_animation/surfaces_lv";
 const VIEW = "/copper3d_examples/heart4d_view.json";
 const pad3 = (n: number) => String(n).padStart(3, "0");
 

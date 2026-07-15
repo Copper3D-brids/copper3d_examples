@@ -142,6 +142,14 @@ const routes: Array<RouteRecordRaw> = [
         /* webpackChunkName: "example01" */ "../pages/example16_surface_annotation.vue"
       ),
   },
+  {
+    path: "/example17",
+    name: "Example17",
+    component: () =>
+      import(
+        /* webpackChunkName: "example01" */ "../pages/example17_mri_vtk_us_4d.vue"
+      ),
+  },
 ];
 
 const router = createRouter({
